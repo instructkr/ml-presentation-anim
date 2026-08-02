@@ -313,12 +313,45 @@ export const App: React.FC = () => {
       (stack.length > 1 ? stack[stack.length - 1]?.nodeId : undefined) ??
       (pathIdx >= 0 ? pathIds[pathIdx] : undefined);
 
-    const modules: OverviewItem[] = ids.map((id, i) => {
+    /**
+     * Identity of what a detail opens. A figure often wires one explanation to
+     * several ids — the block, its magnified panel, every α circle — and the
+     * overview is a jump menu, so those collapse to a single card. The first id
+     * wins, and `path` ids come first, so the guided-path entry is the one kept.
+     */
+    const refIds = new Map<unknown, number>();
+    const refId = (v: unknown): string => {
+      if (!refIds.has(v)) refIds.set(v, refIds.size);
+      return `#${refIds.get(v)}`;
+    };
+    const detailKey = (d: Detail): string => {
+      switch (d.kind) {
+        case 'scene':
+          return `scene:${d.scene.meta.id}`;
+        case 'diagram':
+          return `diagram:${d.diagram.id}`;
+        case 'interactive':
+          return `interactive:${refId(d.component)}`;
+        case 'note':
+          return `note:${refId(d.content)}`;
+      }
+    };
+
+    const modules: OverviewItem[] = [];
+    const byDestination = new Map<string, OverviewItem>();
+    for (const id of ids) {
       const d = details[id];
       const items = Array.isArray(d) ? d : d ? [d] : [];
-      return {
+      const seen = byDestination.get(items.map(detailKey).join('|'));
+      if (seen) {
+        // an alias of a card already listed — fold its state into that card
+        seen.visited = seen.visited || visited.has(id);
+        seen.current = seen.current || (!route.slides && id === here);
+        continue;
+      }
+      const item: OverviewItem = {
         key: `m:${id}`,
-        ordinal: i + 1,
+        ordinal: modules.length + 1,
         label: labelOf(root, id),
         kindTag: items.map(kindTagOf).join(' + ') || 'Module',
         sub: moduleSubOf(items),
@@ -326,7 +359,9 @@ export const App: React.FC = () => {
         current: !route.slides && id === here,
         target: { kind: 'module', nodeId: id },
       };
-    });
+      byDestination.set(items.map(detailKey).join('|'), item);
+      modules.push(item);
+    }
 
     const slideItems: OverviewItem[] = slides.map((s, i) => ({
       key: `s:${i}`,
