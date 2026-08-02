@@ -82,7 +82,7 @@ export const myScene = defineScene(
 export default myScene;
 ```
 
-`stepEffects` semantics: `reveal` is cumulative (ids hidden until revealed — ids never listed in any reveal are visible from frame 0); `highlight`/`pulse`/`dim` apply only while their step is active; `dim: 'others'` dims everything not referenced by the current step. `move: {nodeId: {dx, dy}}` glides nodes by diagram-px offsets — cumulative like `reveal`: the offset eases in over the owning step's animation window and persists afterwards (offsets from several steps sum); attached edges and group boxes follow every frame, and the view is pre-fitted to the union of all morph states so the scale never jumps. `move` takes node ids only. Unknown ids show a red on-canvas warning — fix immediately.
+`stepEffects` semantics: `reveal` is cumulative (ids hidden until revealed — ids never listed in any reveal are visible from frame 0); `highlight`/`pulse`/`dim` apply only while their step is active; `dim: 'others'` dims everything not referenced by the current step. `move: {nodeId: {dx, dy}}` glides nodes by diagram-px offsets — cumulative like `reveal`: the offset eases in over the owning step's animation window and persists afterwards (offsets from several steps sum); attached edges and group boxes follow every frame, and the view is pre-fitted to the union of all morph states so the scale never jumps. `move` takes node ids only. A `reveal` list can be arbitrarily long — the entrance stagger compresses so the last id still finishes by the step's `animEndFrame`. Unknown ids show a red on-canvas warning — fix immediately.
 
 ## Kit reference (all from `@/lib/kit`)
 
@@ -104,7 +104,7 @@ export default myScene;
 
 Timeline (from `@/lib/timeline`): `defineScene`, `step(id, seconds, {hold?})`, `Appear {step, effect fade|rise|pop|left, delay?, duration?, index?, stagger?}`, `useStepProgress(stepId, {portion?, easing?}) → 0..1`, `useSceneMeta()`, `staggerProgress/lerp/lerp3`.
 
-Theme (from `@/lib/theme`): `useTheme()` → `palette.colors.*`, `palette.series[]` (categorical, fixed order), `palette.diagram[variant]`, `fontSize`, `space(n)`. Diagram variants: `attention, ffn, norm, route, embed, io, op, annotation, default, group`.
+Theme (from `@/lib/theme`): `useTheme()` → `palette.colors.*`, `palette.series[]` (categorical, fixed order), `palette.diagram[variant]`, `fontSize`, `space(n)`. Diagram variants: `attention, ffn, norm, route, embed, io, op, annotation, default, group, proj` (maroon — learned projections), `expertShared` (green), `expertRouted` (navy).
 
 ## Diagram files
 
@@ -123,7 +123,13 @@ export const myDiagram = defineDiagram({
 });
 ```
 
-Validated at import (unknown refs/duplicate ids throw). Edge id convention: `e-<from>-<to>`. Layout is automatic (dagre); `position` on every node skips auto-layout. Recreating a paper figure from a screenshot: enumerate every node and edge you see FIRST, then write the file; keep block names English, annotations Korean.
+Validated at import (unknown refs/duplicate ids throw). Edge id convention: `e-<from>-<to>`. Edge labels are **plain text, never KaTeX** — use unicode (`hₗ`, `Wₒ`, `g₁`), not `h_l`. They render beside the line, never on it — scenes offset them perpendicular to the path (`labelPos: 0..1` slides one along its edge; widen `layout: {rankGap}` if a corridor is cramped), and the explorer anchors them beside the segment entering the target. Group labels are solid-bg chips that auto-dodge member entry lines (`groupLabelLeft`) — don't hand-tune label collisions. Layout is automatic (dagre); `position` on every node skips auto-layout. Recreating a paper figure from a screenshot: enumerate every node and edge you see FIRST, then write the file; keep block names English, annotations Korean.
+
+Node extras: `shape: 'rect' | 'circle' | 'pill' | 'trapUp' | 'trapDown' | 'hourglass' | 'bars'` (trapezoid slant shows which way the width changes — `trapUp` = narrow bottom → wide top = an up-projection in an upward-flowing figure; `hourglass` = a low-rank pair, drawn unlabelled), `math: true` to render the label through KaTeX (`\\alpha`, `\\sigma`, `N`), `muted: true` for elements that are present but inactive (unselected experts). Give circles/chips an explicit `size`.
+
+**Hand-routed figures** (every node has `position`) unlock three more things, all rejected under auto-layout: `waypoints: [{x,y}, …]` on an edge for orthogonal elbows (endpoints clip to the face they approach, so a branch entering a wide block stays vertical — put the last waypoint *outside* the target or the arrowhead flips), `arrow: false` for rails that just carry a value, and edges whose `from`/`to` is a **group id**, for panel-to-panel callouts. Groups take `rect: {x,y,w,h}` (explicit box instead of member bounds) and `dash: 'dashed' | 'dotted'`. See `src/weeks/2026-08-12-kimi-k3/diagrams/kimi-k3-arch.diagram.ts` for a 70-node reconstruction using all of it, including the `k3Ids` pattern for deriving `stepEffects` reveal bundles instead of hand-listing ids.
+
+Sizing rule of thumb: a diagram reads on a compressed livestream when `min(width/layout.width, height/layout.height)` lands near **0.7–0.9** (≈21–27px labels). Measure it before rendering rather than guessing — long `tex` strings inflate node width fast, and a dagre *cluster* (`parent` + `groups`) adds a lot of vertical padding, so a wide fan-in usually wants `direction: 'TB'` and no group box.
 
 ## Diagram editor (GUI position tuning)
 

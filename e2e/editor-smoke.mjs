@@ -20,8 +20,13 @@ await page.goto(`${BASE}/editor.html`, { waitUntil: 'networkidle' });
 await page.waitForTimeout(1500);
 
 check('editor page loads with React Flow canvas', (await page.locator('.react-flow').count()) > 0);
-const sidebarItems = await page.getByText('moe-arch', { exact: false }).count();
-check('sidebar lists diagrams (moe-arch visible)', sidebarItems > 0);
+const moeArch = page.getByText('moe-arch', { exact: false });
+check('sidebar lists diagrams (moe-arch visible)', (await moeArch.count()) > 0);
+
+// the assertions below are about moe-arch's content, so select it rather than
+// relying on whichever diagram the week registry happens to list first
+await moeArch.first().click();
+await page.waitForTimeout(800);
 
 const nodeCount = await page.locator('.react-flow__node').count();
 check('nodes rendered on canvas', nodeCount >= 10, `${nodeCount} nodes`);
