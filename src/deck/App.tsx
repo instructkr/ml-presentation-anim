@@ -44,10 +44,14 @@ const parseHash = (): { weekId: string | null; slides: boolean } => {
   return { weekId: m?.[1] ?? null, slides: Boolean(m?.[2]) };
 };
 
-const labelOf = (diagram: Diagram, id: string): string =>
-  diagram.nodes.find((n) => n.id === id)?.label ??
-  diagram.groups.find((g) => g.id === id)?.label ??
-  id;
+/** Chrome name for a node or group: `title` wins, then a non-blank `label`, then the id. */
+const labelOf = (diagram: Diagram, id: string): string => {
+  const node = diagram.nodes.find((n) => n.id === id);
+  if (node) return node.title || node.label || id;
+  const group = diagram.groups.find((g) => g.id === id);
+  if (group) return group.title || group.label || id;
+  return id;
+};
 
 const slideLabelOf = (s: SlideDef): string => (s.kind === 'scene' ? s.scene.meta.title : s.title);
 

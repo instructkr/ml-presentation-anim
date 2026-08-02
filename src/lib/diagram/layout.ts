@@ -54,6 +54,26 @@ export const groupBounds = (members: Rect[]): Rect => {
 
 const centerOf = (r: Rect) => ({ x: r.x + r.w / 2, y: r.y + r.h / 2 });
 
+/**
+ * Left offset (within `box`) for a group's label chip such that it avoids the
+ * vertical edge-entry lines of its members (edges enter at member centre-x,
+ * with their own labels sitting just right of the line). Falls back to the
+ * default inset when nothing fits.
+ */
+export const groupLabelLeft = (box: Rect, members: Rect[], label: string, pad = 14): number => {
+  const labelW = estimateWidth(label, 21) + 22; // chip padding included
+  const blocked = members
+    .map((m) => m.x + m.w / 2 - box.x)
+    .map((cx): [number, number] => [cx - 26, cx + 52])
+    .sort((a, b) => a[0] - b[0]);
+  let x = pad;
+  for (const [s, e] of blocked) {
+    if (x + labelW <= s) break;
+    if (x < e) x = e;
+  }
+  return x + labelW + pad <= box.w ? x : pad;
+};
+
 /** Where the ray from `r`'s centre toward `to` leaves the rect, pushed out by `gap`. */
 export const rectBorderPoint = (r: Rect, to: { x: number; y: number }, gap = 0): { x: number; y: number } => {
   const c = centerOf(r);
@@ -86,6 +106,8 @@ const estimateWidth = (text: string, fontSize: number): number => {
 
 export const defaultNodeSize = (node: DiagramNode): { w: number; h: number } => {
   if (node.size) return node.size;
+  if (node.shape === 'circle') return { w: 46, h: 46 };
+  if (node.shape === 'bars') return { w: 44, h: 44 };
   const fontSize = node.kind === 'block' ? 30 : 26;
   // KaTeX line: strip control words, count remaining glyphs at ~13px each
   const texGlyphs = node.tex ? node.tex.replace(/\\[a-zA-Z]+/g, 'xx').replace(/[{}^_]/g, '').length : 0;
@@ -151,7 +173,7 @@ const dagreLayout = (diagram: Diagram): DiagramLayout => {
     };
   });
   const groups: LaidOutGroup[] = diagram.groups.map((group) => {
-    const b = groupBounds(nodes.filter((n) => n.node.parent === group.id));
+    const b = group.rect ?? groupBounds(nodes.filter((n) => n.node.parent === group.id));
     return { group, ...b };
   });
   const edges: LaidOutEdge[] = diagram.edges.map((edge) => ({
@@ -171,22 +193,81 @@ const dagreLayout = (diagram: Diagram): DiagramLayout => {
   return layout;
 };
 
-/** All nodes have baked positions (from the editor) — skip dagre entirely. */
+/**
+ * Where a rail approaching from `from` meets `r`. When the approach is straight
+ * down/up/left/right onto a face, it lands on that face at the rail's own
+ * coordinate — so a branch entering a wide block stays vertical instead of
+ * bending toward the block's centre. Otherwise it falls back to the radial hit.
+ */
+export const orthoBorderPoint = (
+  r: Rect,
+  from: { x: number; y: number },
+  gap = 0,
+): { x: number; y: number } => {
+  const inset = 3;
+  if (from.x > r.x + inset && from.x < r.x + r.w - inset) {
+    if (from.y <= r.y) return { x: from.x, y: r.y - gap };
+    if (from.y >= r.y + r.h) return { x: from.x, y: r.y + r.h + gap };
+  }
+  if (from.y > r.y + inset && from.y < r.y + r.h - inset) {
+    if (from.x <= r.x) return { x: r.x - gap, y: from.y };
+    if (from.x >= r.x + r.w) return { x: r.x + r.w + gap, y: from.y };
+  }
+  return rectBorderPoint(r, from, gap);
+};
+
+/**
+ * Route a hand-drawn edge through its waypoints: the corners are given, and the
+ * two ends are clipped to the endpoint rects so the line meets each box on the
+ * face it actually approaches.
+ */
+export const waypointPoints = (
+  a: Rect,
+  b: Rect,
+  waypoints: { x: number; y: number }[],
+  gap = 4,
+): { x: number; y: number }[] => {
+  if (waypoints.length === 0) return connectorPoints(a, b, gap);
+  const first = waypoints[0]!;
+  const last = waypoints[waypoints.length - 1]!;
+  return [orthoBorderPoint(a, first, gap), ...waypoints, orthoBorderPoint(b, last, gap)];
+};
+
+/**
+ * All nodes have baked positions (from the editor, or hand-authored for a
+ * reproduced paper figure) — skip dagre entirely. Only here may edges carry
+ * `waypoints` or terminate on a group box.
+ */
 const manualLayout = (diagram: Diagram): DiagramLayout => {
   const nodes: LaidOutNode[] = diagram.nodes.map((node) => {
     const size = defaultNodeSize(node);
     return { node, x: node.position!.x, y: node.position!.y, w: size.w, h: size.h };
   });
   const byId = new Map(nodes.map((n) => [n.node.id, n]));
-  const edges: LaidOutEdge[] = diagram.edges.map((edge) => ({
-    edge,
-    points: connectorPoints(byId.get(edge.from)!, byId.get(edge.to)!),
-  }));
   const groups: LaidOutGroup[] = diagram.groups.map((group) => {
-    const b = groupBounds(nodes.filter((n) => n.node.parent === group.id));
+    const b = group.rect ?? groupBounds(nodes.filter((n) => n.node.parent === group.id));
     return { group, ...b };
   });
-  const maxX = Math.max(...nodes.map((n) => n.x + n.w), ...groups.map((gr) => gr.x + gr.w));
-  const maxY = Math.max(...nodes.map((n) => n.y + n.h), ...groups.map((gr) => gr.y + gr.h));
+  // groups are addressable endpoints too, so panel-to-panel callouts can attach
+  const rectById = new Map<string, Rect>([
+    ...nodes.map((n): [string, Rect] => [n.node.id, { x: n.x, y: n.y, w: n.w, h: n.h }]),
+    ...groups.map((g): [string, Rect] => [g.group.id, { x: g.x, y: g.y, w: g.w, h: g.h }]),
+  ]);
+  const edges: LaidOutEdge[] = diagram.edges.map((edge) => {
+    const a = rectById.get(edge.from)!;
+    const b = rectById.get(edge.to)!;
+    return { edge, points: waypointPoints(a, b, edge.waypoints ?? []) };
+  });
+  // hand-routed rails can swing wide of every box, so they count toward the extent
+  const maxX = Math.max(
+    ...nodes.map((n) => n.x + n.w),
+    ...groups.map((gr) => gr.x + gr.w),
+    ...edges.flatMap((e) => e.points.map((p) => p.x)),
+  );
+  const maxY = Math.max(
+    ...nodes.map((n) => n.y + n.h),
+    ...groups.map((gr) => gr.y + gr.h),
+    ...edges.flatMap((e) => e.points.map((p) => p.y)),
+  );
   return { nodes, edges, groups, width: maxX + 24, height: maxY + 24, byId };
 };

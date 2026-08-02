@@ -15,7 +15,7 @@ import {
   type NodeProps,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import type { Diagram } from '@/lib/diagram/schema';
+import type { Diagram, NodeShape } from '@/lib/diagram/schema';
 import { Block } from '@/lib/kit/diagram/Block';
 import { GroupBox } from '@/lib/kit/diagram/GroupBox';
 import { useTheme } from '@/lib/theme';
@@ -35,6 +35,9 @@ type BlockNodeData = {
   tex?: string;
   kind: 'block' | 'op' | 'io' | 'annotation';
   variant: string;
+  shape: NodeShape;
+  math: boolean;
+  muted: boolean;
   w: number;
   h: number;
   direction: 'TB' | 'LR';
@@ -43,6 +46,7 @@ type BlockNodeData = {
 type GroupNodeData = {
   label?: string;
   variant: string;
+  dash: 'dashed' | 'dotted';
   w: number;
   h: number;
 };
@@ -63,7 +67,17 @@ const BlockNode: React.FC<NodeProps> = ({ data, selected }) => {
       }}
     >
       <Handle type="target" position={targetPos} style={{ opacity: 0, pointerEvents: 'none' }} />
-      <Block label={d.label} tex={d.tex} kind={d.kind} variant={d.variant} width={d.w} height={d.h} />
+      <Block
+        label={d.label}
+        tex={d.tex}
+        kind={d.kind}
+        variant={d.variant}
+        shape={d.shape}
+        math={d.math}
+        muted={d.muted}
+        width={d.w}
+        height={d.h}
+      />
       <Handle type="source" position={sourcePos} style={{ opacity: 0, pointerEvents: 'none' }} />
     </div>
   );
@@ -73,7 +87,10 @@ const GroupNode: React.FC<NodeProps> = ({ data }) => {
   const d = data as GroupNodeData;
   return (
     <div style={{ position: 'relative', pointerEvents: 'none' }}>
-      <GroupBox label={d.label} variant={d.variant} width={d.w} height={d.h} />
+      {/* panels can be callout endpoints, so they need handles like any node */}
+      <Handle type="target" position={Position.Top} style={{ opacity: 0, pointerEvents: 'none' }} />
+      <GroupBox label={d.label} variant={d.variant} dash={d.dash} width={d.w} height={d.h} />
+      <Handle type="source" position={Position.Bottom} style={{ opacity: 0, pointerEvents: 'none' }} />
     </div>
   );
 };
@@ -94,7 +111,13 @@ const Inner: React.FC<EditorCanvasProps> = ({ diagram, boxes, groups, onNodesCha
       draggable: false,
       connectable: false,
       selectable: false,
-      data: { label: g.label, variant: g.variant, w: g.w, h: g.h } satisfies GroupNodeData,
+      data: {
+        label: g.label,
+        variant: g.variant,
+        dash: diagram.groups.find((x) => x.id === g.id)?.dash ?? 'dashed',
+        w: g.w,
+        h: g.h,
+      } satisfies GroupNodeData,
     }));
     const blockNodes: RFNode[] = boxes.flatMap((b) => {
       const node = kindOf.get(b.id);
@@ -111,6 +134,9 @@ const Inner: React.FC<EditorCanvasProps> = ({ diagram, boxes, groups, onNodesCha
             tex: node.tex,
             kind: node.kind,
             variant: node.variant,
+            shape: node.shape,
+            math: node.math,
+            muted: node.muted,
             w: b.w,
             h: b.h,
             direction: diagram.direction,

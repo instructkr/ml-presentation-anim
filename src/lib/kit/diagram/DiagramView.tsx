@@ -4,6 +4,7 @@ import type { Diagram } from '../../diagram/schema';
 import {
   connectorPoints,
   groupBounds,
+  groupLabelLeft,
   layoutDiagram,
   type LaidOutNode,
   type Rect,
@@ -87,7 +88,8 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
   const nodeIds = useMemo(() => new Set(diagram.nodes.map((n) => n.id)), [diagram]);
 
   const { revealAt, unknownIds, anyReveals } = useMemo(() => {
-    const revealAt = new Map<string, { startFrame: number; order: number }>();
+    /** id → the exact frame its entrance starts, stagger already folded in */
+    const revealAt = new Map<string, number>();
     const unknownIds: string[] = [];
     let anyReveals = false;
     for (const [stepId, fx] of Object.entries(stepEffects ?? {})) {
@@ -105,9 +107,16 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
       for (const id of Object.keys(fx.move ?? {})) {
         if (!nodeIds.has(id)) unknownIds.push(`move:${id}`);
       }
-      (fx.reveal ?? []).forEach((id, order) => {
+      // A whole figure panel can be one reveal list, so the stagger compresses
+      // to whatever room the step has left after the last entrance — the step
+      // must still end static.
+      const list = fx.reveal ?? [];
+      const appearFrames = APPEAR_SECONDS * meta.fps;
+      const room = Math.max(0, stepMeta.animEndFrame - stepMeta.startFrame - appearFrames);
+      const stagger = list.length > 1 ? Math.min(STAGGER_SECONDS * meta.fps, room / (list.length - 1)) : 0;
+      list.forEach((id, order) => {
         anyReveals = true;
-        if (!revealAt.has(id)) revealAt.set(id, { startFrame: stepMeta.startFrame, order });
+        if (!revealAt.has(id)) revealAt.set(id, stepMeta.startFrame + order * stagger);
       });
     }
     return { revealAt, unknownIds, anyReveals };
@@ -216,9 +225,8 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
 
   const appearProgress = (id: string): number => {
     if (!anyReveals) return 1;
-    const at = revealAt.get(id);
-    if (!at) return 1;
-    const start = at.startFrame + at.order * STAGGER_SECONDS * meta.fps;
+    const start = revealAt.get(id);
+    if (start === undefined) return 1;
     return interpolate(frame, [start, start + APPEAR_SECONDS * meta.fps], [0, 1], {
       extrapolateLeft: 'clamp',
       extrapolateRight: 'clamp',
@@ -263,29 +271,19 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
           transformOrigin: 'top left',
         }}
       >
-        {layout.groups.map((g, i) => {
-          const p = appearProgress(g.group.id);
-          const box = groupRects[i]!;
-          return (
-            <GroupBox
-              key={g.group.id}
-              label={g.group.label}
-              variant={g.group.variant}
-              width={box.w}
-              height={box.h}
-              highlighted={current.highlight.has(g.group.id)}
-              dimmed={current.dim.has(g.group.id)}
-              style={{ position: 'absolute', left: box.x, top: box.y, opacity: p }}
-            />
-          );
-        })}
         <svg
           style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible' }}
           width={extent.w}
           height={extent.h}
         >
           {layout.edges.map((e) => {
-            const morphing = movedIds.has(e.edge.from) || movedIds.has(e.edge.to);
+            // a hand-routed edge keeps its waypoints; only auto-routed ones
+            // re-derive as straight connectors while their endpoints glide
+            const morphing =
+              !e.edge.waypoints?.length &&
+              (movedIds.has(e.edge.from) || movedIds.has(e.edge.to)) &&
+              rects.has(e.edge.from) &&
+              rects.has(e.edge.to);
             const points = morphing
               ? connectorPoints(rects.get(e.edge.from)!, rects.get(e.edge.to)!)
               : e.points;
@@ -294,7 +292,10 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
                 key={e.edge.id}
                 points={points}
                 dashed={e.edge.style === 'dashed'}
+                dotted={e.edge.style === 'dotted'}
+                arrow={e.edge.arrow}
                 label={e.edge.label}
+                labelPos={e.edge.labelPos}
                 color={e.edge.color}
                 draw={appearProgress(e.edge.id)}
                 pulse={current.pulse.has(e.edge.id)}
@@ -305,6 +306,28 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
             );
           })}
         </svg>
+        {/* groups sit above the edges so their label chips mask crossing lines */}
+        {layout.groups.map((g, i) => {
+          const p = appearProgress(g.group.id);
+          const box = groupRects[i]!;
+          const memberRects = layout.nodes
+            .filter((n) => n.node.parent === g.group.id)
+            .map((n) => rects.get(n.node.id)!);
+          return (
+            <GroupBox
+              key={g.group.id}
+              label={g.group.label}
+              labelLeft={g.group.label ? groupLabelLeft(box, memberRects, g.group.label) : undefined}
+              variant={g.group.variant}
+              dash={g.group.dash}
+              width={box.w}
+              height={box.h}
+              highlighted={current.highlight.has(g.group.id)}
+              dimmed={current.dim.has(g.group.id)}
+              style={{ position: 'absolute', left: box.x, top: box.y, opacity: p }}
+            />
+          );
+        })}
         {layout.nodes.map((n) => {
           const p = appearProgress(n.node.id);
           const r = rects.get(n.node.id)!;
@@ -324,6 +347,9 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
                 tex={n.node.tex}
                 kind={n.node.kind}
                 variant={n.node.variant}
+                shape={n.node.shape}
+                math={n.node.math}
+                muted={n.node.muted}
                 width={n.w}
                 height={n.h}
                 highlighted={current.highlight.has(n.node.id)}

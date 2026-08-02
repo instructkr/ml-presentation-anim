@@ -3,7 +3,10 @@ import { diagramVariant, useTheme } from '../../theme';
 
 export interface GroupBoxProps {
   label?: string;
+  /** left inset of the label chip — pass `groupLabelLeft(...)` to dodge edge-entry lines */
+  labelLeft?: number;
   variant?: string;
+  dash?: 'dashed' | 'dotted';
   width: number;
   height: number;
   highlighted?: boolean;
@@ -13,7 +16,9 @@ export interface GroupBoxProps {
 
 export const GroupBox: React.FC<GroupBoxProps> = ({
   label,
+  labelLeft = 14,
   variant = 'group',
+  dash = 'dashed',
   width,
   height,
   highlighted = false,
@@ -29,24 +34,28 @@ export const GroupBox: React.FC<GroupBoxProps> = ({
         height,
         boxSizing: 'border-box',
         background: v.fill,
-        border: `2px dashed ${v.stroke}`,
-        borderRadius: t.radius.lg,
+        border: `${t.stroke.thin}px ${dash} ${v.stroke}`,
+        borderRadius: t.radius.md,
         opacity: dimmed ? 0.25 : 1,
         boxShadow: highlighted ? `0 0 0 3px ${t.palette.colors.accent}44` : 'none',
         ...style,
       }}
     >
       {label ? (
+        // solid-bg chip so edges passing underneath never collide with the text
         <div
           style={{
             position: 'absolute',
             top: 8,
-            left: 18,
-            fontSize: 22,
-            fontWeight: 600,
+            left: labelLeft,
+            fontSize: 21,
+            fontWeight: 500,
             letterSpacing: 1,
             color: v.text,
             fontFamily: t.fonts.sans,
+            background: t.palette.colors.bg,
+            padding: '2px 10px',
+            borderRadius: 6,
           }}
         >
           {label}
