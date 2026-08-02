@@ -21,6 +21,8 @@ export interface TensorBoxProps {
   moveProgress?: number;
   showLabels?: boolean;
   labelColor?: string;
+  /** dim-label opacity, independent of the box (default: follows `opacity`) — fade labels out once they go stale, e.g. after shards land on GPUs */
+  labelOpacity?: number;
 }
 
 /** Compress huge dims (e.g. 4096) into readable proportions. */
@@ -47,6 +49,7 @@ export const TensorBox: React.FC<TensorBoxProps> = ({
   moveProgress = 0,
   showLabels = true,
   labelColor = '#c3c2b7',
+  labelOpacity,
 }) => {
   const [sx, sy, sz] = extents(dims, maxExtent);
 
@@ -110,7 +113,7 @@ export const TensorBox: React.FC<TensorBoxProps> = ({
           text={l.text}
           position={[position[0] + l.pos[0], position[1] + l.pos[1], position[2] + l.pos[2]]}
           color={labelColor}
-          opacity={opacity}
+          opacity={labelOpacity ?? opacity}
         />
       ))}
     </group>

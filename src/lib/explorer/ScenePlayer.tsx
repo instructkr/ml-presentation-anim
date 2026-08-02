@@ -21,6 +21,8 @@ export interface ScenePlayerProps {
   scene: SceneModule;
   /** 'start': autoplay step 1 then pause · 'end': open fully revealed */
   initialMode?: 'start' | 'end';
+  /** fired whenever the current step changes or settles (incl. mount + restart) */
+  onStepChange?: (stepIdx: number, stepId: string) => void;
 }
 
 /**
@@ -29,7 +31,7 @@ export interface ScenePlayerProps {
  * pauses there. Never polls — rides the per-frame 'frameupdate' event.
  */
 export const ScenePlayer = forwardRef<ScenePlayerHandle, ScenePlayerProps>(
-  ({ scene, initialMode = 'start' }, ref) => {
+  ({ scene, initialMode = 'start', onStepChange }, ref) => {
     const t = useTheme();
     const playerRef = useRef<PlayerRef>(null);
     const targetRef = useRef<number | null>(null);
@@ -37,6 +39,21 @@ export const ScenePlayer = forwardRef<ScenePlayerHandle, ScenePlayerProps>(
     const [stepIdx, setStepIdx] = useState(0);
     const { meta } = scene;
     const lastIdx = meta.steps.length - 1;
+
+    // Kept in a ref so a changing callback identity never re-runs the
+    // mount effect below (which would restart the scene mid-talk).
+    const onStepChangeRef = useRef(onStepChange);
+    useEffect(() => {
+      onStepChangeRef.current = onStepChange;
+    }, [onStepChange]);
+
+    const emitStep = useCallback(
+      (idx: number) => {
+        const s = meta.steps[idx];
+        if (s) onStepChangeRef.current?.(idx, s.id);
+      },
+      [meta],
+    );
 
     const settle = useCallback(
       (idx: number, frame: number) => {
@@ -47,8 +64,9 @@ export const ScenePlayer = forwardRef<ScenePlayerHandle, ScenePlayerProps>(
         targetRef.current = null;
         stepIdxRef.current = idx;
         setStepIdx(idx);
+        emitStep(idx);
       },
-      [],
+      [emitStep],
     );
 
     const playToStep = useCallback((idx: number) => {
@@ -58,8 +76,9 @@ export const ScenePlayer = forwardRef<ScenePlayerHandle, ScenePlayerProps>(
       targetRef.current = stepMeta.endFrame - 1;
       stepIdxRef.current = idx;
       setStepIdx(idx);
+      emitStep(idx);
       p.play();
-    }, [meta]);
+    }, [meta, emitStep]);
 
     useEffect(() => {
       const p = playerRef.current;

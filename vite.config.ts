@@ -14,6 +14,7 @@ export default defineConfig({
       input: {
         deck: fileURLToPath(new URL('./index.html', import.meta.url)),
         editor: fileURLToPath(new URL('./editor.html', import.meta.url)),
+        notes: fileURLToPath(new URL('./notes.html', import.meta.url)),
       },
     },
   },

@@ -1,12 +1,24 @@
 import React, { useMemo } from 'react';
 import { Easing, interpolate, useCurrentFrame } from 'remotion';
 import type { Diagram } from '../../diagram/schema';
-import { layoutDiagram } from '../../diagram/layout';
+import {
+  connectorPoints,
+  groupBounds,
+  layoutDiagram,
+  type LaidOutNode,
+  type Rect,
+} from '../../diagram/layout';
 import { useSceneMeta } from '../../timeline/context';
 import { useTheme } from '../../theme';
 import { ArrowEdge } from './ArrowEdge';
 import { Block } from './Block';
 import { GroupBox } from './GroupBox';
+
+/** Offset in diagram pixels, applied on top of the node's laid-out position. */
+export interface NodeOffset {
+  dx: number;
+  dy: number;
+}
 
 export interface StepEffect {
   /** ids become visible at this step and stay visible (cumulative) */
@@ -17,6 +29,13 @@ export interface StepEffect {
   pulse?: string[];
   /** ids fade back while this step is active; 'others' = everything not otherwise referenced this step */
   dim?: string[] | 'others';
+  /**
+   * node id → offset in diagram px (FLIP-style glide). Cumulative like `reveal`:
+   * the offset eases in across this step's animation window and persists for every
+   * later step; offsets from several steps sum. Attached edges and group boxes
+   * follow the displaced node every frame.
+   */
+  move?: Record<string, NodeOffset>;
 }
 
 export interface DiagramViewProps {
@@ -30,6 +49,17 @@ export interface DiagramViewProps {
 
 const APPEAR_SECONDS = 0.55;
 const STAGGER_SECONDS = 0.1;
+/** breathing room added around the union of all morph states, matching the layout margin */
+const EXTENT_PAD = 24;
+
+const ZERO: NodeOffset = { dx: 0, dy: 0 };
+
+const rectOf = (n: LaidOutNode, o: NodeOffset = ZERO): Rect => ({
+  x: n.x + o.dx,
+  y: n.y + o.dy,
+  w: n.w,
+  h: n.h,
+});
 
 /**
  * Frame-driven renderer for a Diagram. Must render inside a defineScene()
@@ -54,6 +84,7 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
     for (const g of diagram.groups) s.add(g.id);
     return s;
   }, [diagram]);
+  const nodeIds = useMemo(() => new Set(diagram.nodes.map((n) => n.id)), [diagram]);
 
   const { revealAt, unknownIds, anyReveals } = useMemo(() => {
     const revealAt = new Map<string, { startFrame: number; order: number }>();
@@ -70,13 +101,118 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
           if (!knownIds.has(id)) unknownIds.push(id);
         }
       }
+      // `move` takes node ids only — an edge or group id here is a mistake.
+      for (const id of Object.keys(fx.move ?? {})) {
+        if (!nodeIds.has(id)) unknownIds.push(`move:${id}`);
+      }
       (fx.reveal ?? []).forEach((id, order) => {
         anyReveals = true;
         if (!revealAt.has(id)) revealAt.set(id, { startFrame: stepMeta.startFrame, order });
       });
     }
     return { revealAt, unknownIds, anyReveals };
-  }, [stepEffects, meta, knownIds]);
+  }, [stepEffects, meta, knownIds, nodeIds]);
+
+  /** Steps that move nodes, in step order, with only the valid node ids kept. */
+  const moveSteps = useMemo(() => {
+    const out: { startFrame: number; animEndFrame: number; moves: [string, NodeOffset][] }[] = [];
+    for (const s of meta.steps) {
+      const moves = Object.entries(stepEffects?.[s.id]?.move ?? {}).filter(([id]) => nodeIds.has(id));
+      if (moves.length > 0) {
+        out.push({ startFrame: s.startFrame, animEndFrame: s.animEndFrame, moves });
+      }
+    }
+    return out;
+  }, [meta, stepEffects, nodeIds]);
+
+  const movedIds = useMemo(
+    () => new Set(moveSteps.flatMap((s) => s.moves.map(([id]) => id))),
+    [moveSteps],
+  );
+
+  /** Cumulative offset per moved node at this frame (eased over each owning step's animation window). */
+  const offsets = useMemo(() => {
+    const acc = new Map<string, NodeOffset>();
+    for (const s of moveSteps) {
+      const p = interpolate(frame, [s.startFrame, s.animEndFrame], [0, 1], {
+        extrapolateLeft: 'clamp',
+        extrapolateRight: 'clamp',
+        easing: Easing.inOut(Easing.cubic),
+      });
+      for (const [id, off] of s.moves) {
+        const cur = acc.get(id) ?? { dx: 0, dy: 0 };
+        acc.set(id, { dx: cur.dx + off.dx * p, dy: cur.dy + off.dy * p });
+      }
+    }
+    return acc;
+  }, [moveSteps, frame]);
+
+  /** Live rects for this frame — the single source of truth for nodes, edges and group boxes. */
+  const rects = useMemo(() => {
+    const m = new Map<string, Rect>();
+    for (const n of layout.nodes) m.set(n.node.id, rectOf(n, offsets.get(n.node.id)));
+    return m;
+  }, [layout, offsets]);
+
+  const groupRects = useMemo(
+    () =>
+      layout.groups.map((g) => {
+        const members = layout.nodes.filter((n) => n.node.parent === g.group.id);
+        const moves = members.some((n) => movedIds.has(n.node.id));
+        return moves ? groupBounds(members.map((n) => rects.get(n.node.id)!)) : { x: g.x, y: g.y, w: g.w, h: g.h };
+      }),
+    [layout, rects, movedIds],
+  );
+
+  /**
+   * Fit the view to the union of every morph state so the scale never jumps
+   * mid-move and displaced nodes stay inside the frame. With no `move` this is
+   * exactly the laid-out size.
+   */
+  const extent = useMemo(() => {
+    if (moveSteps.length === 0) {
+      return { w: layout.width, h: layout.height, shiftX: 0, shiftY: 0 };
+    }
+    let minX = 0;
+    let minY = 0;
+    let maxX = 0;
+    let maxY = 0;
+    const acc = new Map<string, NodeOffset>();
+    const visit = () => {
+      const nodeRects = layout.nodes.map((n) => rectOf(n, acc.get(n.node.id)));
+      const byId = new Map(layout.nodes.map((n, i) => [n.node.id, nodeRects[i]!]));
+      const boxes = [
+        ...nodeRects,
+        ...layout.groups.map((g) =>
+          groupBounds(
+            layout.nodes.filter((n) => n.node.parent === g.group.id).map((n) => byId.get(n.node.id)!),
+          ),
+        ),
+      ];
+      for (const b of boxes) {
+        minX = Math.min(minX, b.x);
+        minY = Math.min(minY, b.y);
+        maxX = Math.max(maxX, b.x + b.w);
+        maxY = Math.max(maxY, b.y + b.h);
+      }
+    };
+    visit();
+    for (const s of moveSteps) {
+      for (const [id, off] of s.moves) {
+        const cur = acc.get(id) ?? { dx: 0, dy: 0 };
+        acc.set(id, { dx: cur.dx + off.dx, dy: cur.dy + off.dy });
+      }
+      visit();
+    }
+    const shiftX = Math.max(0, -minX);
+    const shiftY = Math.max(0, -minY);
+    return {
+      w: Math.max(layout.width + shiftX, maxX + shiftX + EXTENT_PAD),
+      h: Math.max(layout.height + shiftY, maxY + shiftY + EXTENT_PAD),
+      shiftX,
+      shiftY,
+    };
+  }, [layout, moveSteps]);
 
   const appearProgress = (id: string): number => {
     if (!anyReveals) return 1;
@@ -109,9 +245,9 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
     return { highlight, pulse, dim };
   }, [frame, meta, stepEffects, knownIds]);
 
-  const scale = Math.min(width / layout.width, height / layout.height, maxScale);
-  const offsetX = (width - layout.width * scale) / 2;
-  const offsetY = (height - layout.height * scale) / 2;
+  const scale = Math.min(width / extent.w, height / extent.h, maxScale);
+  const offsetX = (width - extent.w * scale) / 2;
+  const offsetY = (height - extent.h * scale) / 2;
   const pulsePhase = (frame % 24) / 24;
 
   return (
@@ -121,49 +257,57 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
           position: 'absolute',
           left: offsetX,
           top: offsetY,
-          width: layout.width,
-          height: layout.height,
-          transform: `scale(${scale})`,
+          width: extent.w,
+          height: extent.h,
+          transform: `scale(${scale}) translate(${extent.shiftX}px, ${extent.shiftY}px)`,
           transformOrigin: 'top left',
         }}
       >
-        {layout.groups.map((g) => {
+        {layout.groups.map((g, i) => {
           const p = appearProgress(g.group.id);
+          const box = groupRects[i]!;
           return (
             <GroupBox
               key={g.group.id}
               label={g.group.label}
               variant={g.group.variant}
-              width={g.w}
-              height={g.h}
+              width={box.w}
+              height={box.h}
               highlighted={current.highlight.has(g.group.id)}
               dimmed={current.dim.has(g.group.id)}
-              style={{ position: 'absolute', left: g.x, top: g.y, opacity: p }}
+              style={{ position: 'absolute', left: box.x, top: box.y, opacity: p }}
             />
           );
         })}
         <svg
           style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible' }}
-          width={layout.width}
-          height={layout.height}
+          width={extent.w}
+          height={extent.h}
         >
-          {layout.edges.map((e) => (
-            <ArrowEdge
-              key={e.edge.id}
-              points={e.points}
-              dashed={e.edge.style === 'dashed'}
-              label={e.edge.label}
-              color={e.edge.color}
-              draw={appearProgress(e.edge.id)}
-              pulse={current.pulse.has(e.edge.id)}
-              pulsePhase={pulsePhase}
-              highlighted={current.highlight.has(e.edge.id)}
-              dimmed={current.dim.has(e.edge.id)}
-            />
-          ))}
+          {layout.edges.map((e) => {
+            const morphing = movedIds.has(e.edge.from) || movedIds.has(e.edge.to);
+            const points = morphing
+              ? connectorPoints(rects.get(e.edge.from)!, rects.get(e.edge.to)!)
+              : e.points;
+            return (
+              <ArrowEdge
+                key={e.edge.id}
+                points={points}
+                dashed={e.edge.style === 'dashed'}
+                label={e.edge.label}
+                color={e.edge.color}
+                draw={appearProgress(e.edge.id)}
+                pulse={current.pulse.has(e.edge.id)}
+                pulsePhase={pulsePhase}
+                highlighted={current.highlight.has(e.edge.id)}
+                dimmed={current.dim.has(e.edge.id)}
+              />
+            );
+          })}
         </svg>
         {layout.nodes.map((n) => {
           const p = appearProgress(n.node.id);
+          const r = rects.get(n.node.id)!;
           return (
             <div
               key={n.node.id}
@@ -172,7 +316,7 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
                 left: n.x,
                 top: n.y,
                 opacity: p,
-                transform: `translateY(${(1 - p) * 14}px)`,
+                transform: `translate(${r.x - n.x}px, ${r.y - n.y + (1 - p) * 14}px)`,
               }}
             >
               <Block

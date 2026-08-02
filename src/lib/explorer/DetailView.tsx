@@ -14,6 +14,8 @@ export interface DetailViewProps {
   playerHandleRef: React.MutableRefObject<ScenePlayerHandle | null>;
   /** open fully revealed (already visited) instead of building in */
   revealed?: boolean;
+  /** forwarded to ScenePlayer so App can broadcast step position to the notes window */
+  onStepChange?: (stepIdx: number, stepId: string) => void;
 }
 
 const tabLabel = (d: Detail, i: number): string => {
@@ -41,6 +43,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
   onTab,
   playerHandleRef,
   revealed = false,
+  onStepChange,
 }) => {
   const t = useTheme();
   const item = items[Math.min(activeTab, items.length - 1)]!;
@@ -107,7 +110,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
           </div>
         ) : null}
         <div style={{ color: t.palette.colors.muted, fontSize: 15, fontFamily: t.fonts.mono }}>
-          Space: 다음 단계 · Esc: 돌아가기
+          Space: 다음 단계 · Esc: 돌아가기 · o: 개요 · s: 노트
         </div>
       </div>
 
@@ -120,6 +123,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
             }}
             scene={item.scene}
             initialMode={revealed ? 'end' : 'start'}
+            onStepChange={onStepChange}
           />
         ) : null}
         {item.kind === 'interactive' ? <item.component /> : null}

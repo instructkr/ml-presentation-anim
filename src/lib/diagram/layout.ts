@@ -31,6 +31,48 @@ export interface DiagramLayout {
   byId: Map<string, LaidOutNode>;
 }
 
+export interface Rect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+export const GROUP_PAD = 18;
+/** vertical room reserved above a group's members for its label */
+export const GROUP_LABEL_H = 26;
+
+/** Group box that encloses its member rects. Callers re-run this per frame when members move. */
+export const groupBounds = (members: Rect[]): Rect => {
+  if (members.length === 0) return { x: 0, y: 0, w: 0, h: 0 };
+  const x0 = Math.min(...members.map((m) => m.x)) - GROUP_PAD;
+  const y0 = Math.min(...members.map((m) => m.y)) - GROUP_PAD - GROUP_LABEL_H;
+  const x1 = Math.max(...members.map((m) => m.x + m.w)) + GROUP_PAD;
+  const y1 = Math.max(...members.map((m) => m.y + m.h)) + GROUP_PAD;
+  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+};
+
+const centerOf = (r: Rect) => ({ x: r.x + r.w / 2, y: r.y + r.h / 2 });
+
+/** Where the ray from `r`'s centre toward `to` leaves the rect, pushed out by `gap`. */
+export const rectBorderPoint = (r: Rect, to: { x: number; y: number }, gap = 0): { x: number; y: number } => {
+  const c = centerOf(r);
+  const dx = to.x - c.x;
+  const dy = to.y - c.y;
+  const len = Math.hypot(dx, dy);
+  if (len < 1e-6) return c;
+  const sx = dx === 0 ? Infinity : r.w / 2 / Math.abs(dx);
+  const sy = dy === 0 ? Infinity : r.h / 2 / Math.abs(dy);
+  const s = Math.min(sx, sy) + gap / len;
+  return { x: c.x + dx * s, y: c.y + dy * s };
+};
+
+/** Straight connector between two rects, clipped to their borders — used for moved (morphing) edges. */
+export const connectorPoints = (a: Rect, b: Rect, gap = 5): { x: number; y: number }[] => [
+  rectBorderPoint(a, centerOf(b), gap),
+  rectBorderPoint(b, centerOf(a), gap),
+];
+
 const CJK = /[ᄀ-ᇿ㄰-㆏가-힯一-鿿]/;
 
 /** Deterministic text-width estimate (no DOM measurement in the render path). */
@@ -108,14 +150,9 @@ const dagreLayout = (diagram: Diagram): DiagramLayout => {
       h: pos.height,
     };
   });
-  const pad = 18;
   const groups: LaidOutGroup[] = diagram.groups.map((group) => {
-    const members = nodes.filter((n) => n.node.parent === group.id);
-    const x0 = Math.min(...members.map((m) => m.x)) - pad;
-    const y0 = Math.min(...members.map((m) => m.y)) - pad - 26; // room for label
-    const x1 = Math.max(...members.map((m) => m.x + m.w)) + pad;
-    const y1 = Math.max(...members.map((m) => m.y + m.h)) + pad;
-    return { group, x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+    const b = groupBounds(nodes.filter((n) => n.node.parent === group.id));
+    return { group, ...b };
   });
   const edges: LaidOutEdge[] = diagram.edges.map((edge) => ({
     edge,
@@ -141,25 +178,13 @@ const manualLayout = (diagram: Diagram): DiagramLayout => {
     return { node, x: node.position!.x, y: node.position!.y, w: size.w, h: size.h };
   });
   const byId = new Map(nodes.map((n) => [n.node.id, n]));
-  const edges: LaidOutEdge[] = diagram.edges.map((edge) => {
-    const a = byId.get(edge.from)!;
-    const b = byId.get(edge.to)!;
-    return {
-      edge,
-      points: [
-        { x: a.x + a.w / 2, y: a.y + a.h / 2 },
-        { x: b.x + b.w / 2, y: b.y + b.h / 2 },
-      ],
-    };
-  });
-  const pad = 18;
+  const edges: LaidOutEdge[] = diagram.edges.map((edge) => ({
+    edge,
+    points: connectorPoints(byId.get(edge.from)!, byId.get(edge.to)!),
+  }));
   const groups: LaidOutGroup[] = diagram.groups.map((group) => {
-    const members = nodes.filter((n) => n.node.parent === group.id);
-    const x0 = Math.min(...members.map((m) => m.x)) - pad;
-    const y0 = Math.min(...members.map((m) => m.y)) - pad - 26;
-    const x1 = Math.max(...members.map((m) => m.x + m.w)) + pad;
-    const y1 = Math.max(...members.map((m) => m.y + m.h)) + pad;
-    return { group, x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+    const b = groupBounds(nodes.filter((n) => n.node.parent === group.id));
+    return { group, ...b };
   });
   const maxX = Math.max(...nodes.map((n) => n.x + n.w), ...groups.map((gr) => gr.x + gr.w));
   const maxY = Math.max(...nodes.map((n) => n.y + n.h), ...groups.map((gr) => gr.y + gr.h));

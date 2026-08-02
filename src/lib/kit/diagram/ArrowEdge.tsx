@@ -76,7 +76,11 @@ export const ArrowEdge: React.FC<ArrowEdgeProps> = ({
     x: tip.x - ah * Math.cos(angle + 0.45),
     y: tip.y - ah * Math.sin(angle + 0.45),
   };
-  const mid = points[Math.floor(points.length / 2)]!;
+  // a straight 2-point edge has no interior point — put the label on the segment's centre
+  const mid =
+    points.length === 2
+      ? { x: (points[0]!.x + points[1]!.x) / 2, y: (points[0]!.y + points[1]!.y) / 2 }
+      : points[Math.floor(points.length / 2)]!;
   const opacity = dimmed ? 0.18 : 1;
 
   return (

@@ -30,6 +30,12 @@ export interface WeekManifest {
   explorable: Explorable;
   /** optional thin linear mode (title/benchmarks/closing) */
   slides?: SlideDef[];
+  /**
+   * presenter-only speaker notes (shown in the notes window, never on stream).
+   * Keys: node id ('attn'), scene id ('00-title'), per-step override
+   * ('attn/score'), '_home' for the root canvas. Most-specific key wins.
+   */
+  notes?: Record<string, string>;
   /** every defineScene of the week — drives Remotion <Composition> registration */
   scenes: SceneModule[];
 }

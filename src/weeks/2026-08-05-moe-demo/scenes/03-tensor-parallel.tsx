@@ -35,6 +35,7 @@ const Scene: React.FC = () => {
           dimLabels={['B', 'S', 'H']}
           maxExtent={MAX_EXTENT}
           opacity={appearP}
+          labelOpacity={appearP * (1 - moveP)}
           color={t.palette.series[0]}
           split={{ axis: 2, parts: PARTS, gap: GAP, colors: t.palette.series.slice(0, PARTS) }}
           splitProgress={splitP}
@@ -49,7 +50,7 @@ const Scene: React.FC = () => {
           position={[0, -2.75, 0]}
           activeIndices={moveP > 0.5 ? [0, 1, 2, 3] : []}
           activeColor={t.palette.colors.ok}
-          opacity={Math.min(1, splitP + moveP)}
+          opacity={Math.min(1, moveP * 2)}
         />
       </ThreeScene>
       <AbsoluteFill style={{ pointerEvents: 'none', padding: 64, fontFamily: t.fonts.sans }}>

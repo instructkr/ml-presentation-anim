@@ -5,7 +5,10 @@ import { attentionScene } from './scenes/01-attention';
 import { routerScene } from './scenes/02-router';
 import { tensorParallelScene } from './scenes/03-tensor-parallel';
 import { benchmarksScene } from './scenes/04-benchmarks';
+import { scalingLawsScene } from './scenes/05-scaling-laws';
+import { diagramMorphScene } from './scenes/06-diagram-morph';
 import { TensorPlayground } from './interactive/TensorPlayground';
+import { presenterNotes } from './notes';
 
 export const week20260805: WeekManifest = {
   id: '2026-08-05-moe-demo',
@@ -25,6 +28,17 @@ export const week20260805: WeekManifest = {
   slides: [
     { kind: 'scene', scene: titleScene },
     { kind: 'scene', scene: benchmarksScene },
+    { kind: 'scene', scene: scalingLawsScene },
+    { kind: 'scene', scene: diagramMorphScene },
   ],
-  scenes: [titleScene, attentionScene, routerScene, tensorParallelScene, benchmarksScene],
+  notes: presenterNotes,
+  scenes: [
+    titleScene,
+    attentionScene,
+    routerScene,
+    tensorParallelScene,
+    benchmarksScene,
+    scalingLawsScene,
+    diagramMorphScene,
+  ],
 };

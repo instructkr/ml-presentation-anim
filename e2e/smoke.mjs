@@ -238,6 +238,63 @@ async function shot(page, name) {
       record("i. Press 'd' shows HUD overlay containing 'week'", false, e.message);
     }
 
+    // j. Press 'o' -> overview grid appears (guided path + slides sections); Escape closes it.
+    setAction("press 'o' for overview");
+    try {
+      await page.keyboard.press('o');
+      await page.waitForTimeout(500);
+      const pathSection = await page.getByText('가이드 경로').first().isVisible().catch(() => false);
+      const slideSection = await page.getByText('슬라이드').first().isVisible().catch(() => false);
+      const mhaCard = await page.getByText('Multi-Head Attention', { exact: false }).first().isVisible().catch(() => false);
+      await shot(page, 'overview.png');
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(400);
+      const closed = !(await page.getByText('가이드 경로').first().isVisible().catch(() => false));
+      record("j. Press 'o' shows overview (path + slides sections, module card); Escape closes",
+        pathSection && slideSection && mhaCard && closed,
+        `path=${pathSection}, slides=${slideSection}, card=${mhaCard}, closed=${closed}`);
+    } catch (e) {
+      record("j. Press 'o' shows overview; Escape closes", false, e.message);
+    }
+
+    // k. Notes window (notes.html) follows the deck over BroadcastChannel, incl. per-step override.
+    setAction('open notes window and check live sync');
+    let notesPage;
+    try {
+      notesPage = await context.newPage();
+      await notesPage.goto(`${BASE_URL}/notes.html`, { waitUntil: 'load' });
+      await notesPage.waitForTimeout(600); // hello handshake -> deck answers with current state
+      const gotWeek = await notesPage.getByText('Mixture of Experts', { exact: false }).first().isVisible().catch(() => false);
+
+      // open the attention detail in the deck; notes must switch to the module note
+      await page.waitForSelector('.react-flow', { state: 'visible', timeout: 5000 });
+      await page.getByText('Multi-Head Attention', { exact: false }).first().click();
+      await page.waitForSelector('text=Space: 다음 단계', { timeout: 4000 });
+      // already visited in earlier checks, so it reopens fully revealed at the LAST
+      // step — restart so Space walks qkv → scores → softmax
+      await page.keyboard.press('r');
+      await page.waitForTimeout(3000); // step 1 autoplay settles
+      const gotModule = await notesPage.getByText('복습', { exact: false }).first().isVisible().catch(() => false);
+
+      // advance to the 'softmax' step: the 'attn/softmax' per-step override must take over
+      await page.keyboard.press('Space');
+      await page.waitForTimeout(3500);
+      await page.keyboard.press('Space');
+      await page.waitForTimeout(3500);
+      const gotStepNote = await notesPage.getByText('연결 고리', { exact: false }).first().isVisible().catch(() => false);
+
+      await notesPage.screenshot({ path: path.join(OUT_DIR, 'notes-live.png') });
+      record('k. Notes window syncs: week on open, module note on detail, per-step override on softmax',
+        gotWeek && gotModule && gotStepNote,
+        `week=${gotWeek}, module=${gotModule}, stepNote=${gotStepNote}`);
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(500);
+    } catch (e) {
+      record('k. Notes window syncs over BroadcastChannel', false, e.message);
+    } finally {
+      await notesPage?.close().catch(() => {});
+    }
+
   } finally {
     await browser.close();
   }

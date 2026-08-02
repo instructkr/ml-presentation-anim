@@ -82,7 +82,7 @@ export const myScene = defineScene(
 export default myScene;
 ```
 
-`stepEffects` semantics: `reveal` is cumulative (ids hidden until revealed — ids never listed in any reveal are visible from frame 0); `highlight`/`pulse`/`dim` apply only while their step is active; `dim: 'others'` dims everything not referenced by the current step. Unknown ids show a red on-canvas warning — fix immediately.
+`stepEffects` semantics: `reveal` is cumulative (ids hidden until revealed — ids never listed in any reveal are visible from frame 0); `highlight`/`pulse`/`dim` apply only while their step is active; `dim: 'others'` dims everything not referenced by the current step. `move: {nodeId: {dx, dy}}` glides nodes by diagram-px offsets — cumulative like `reveal`: the offset eases in over the owning step's animation window and persists afterwards (offsets from several steps sum); attached edges and group boxes follow every frame, and the view is pre-fitted to the union of all morph states so the scale never jumps. `move` takes node ids only. Unknown ids show a red on-canvas warning — fix immediately.
 
 ## Kit reference (all from `@/lib/kit`)
 
@@ -93,10 +93,12 @@ export default myScene;
 - `DiagramView {diagram, stepEffects?, width?, height?}` — step-driven diagram (scenes only).
 - `Block/GroupBox/ArrowEdge` — diagram atoms (rarely used directly; DiagramView/explorer render them).
 - `ThreeScene {camera?: {position, target, fov}, children}` — Remotion-safe 3D stage. Camera moves = frame-derived position.
-- `TensorBox {dims:[a,b,c], dimLabels?, split?: {axis, parts, gap?, colors?}, splitProgress?, partOffsets?, moveProgress?, opacity?, maxExtent?, color?}` — pure props; drive with `useStepProgress`.
+- `TensorBox {dims:[a,b,c], dimLabels?, split?: {axis, parts, gap?, colors?}, splitProgress?, partOffsets?, moveProgress?, opacity?, labelOpacity?, maxExtent?, color?}` — pure props; drive with `useStepProgress`; fade `labelOpacity` to 0 once dim labels go stale (e.g. after shards land on GPUs).
 - `GPUGrid {count, columns?, cell?, gap?, position?, activeIndices?, activeColor?, opacity?}`.
 - `BillboardLabel {text, position, height?, color?}` — deterministic 3D text (never drei `<Text>`).
 - `BarChart {data:[{label,value,color?}], progress?, width, height, maxValue?, valueFormat?, highlightIndex?}` — SVG horizontal bar chart for benchmark tables; single-hue by default (`palette.series[0]`), `progress` sweeps linearly (drive with `useStepProgress`), value labels fade in at the end.
+- `LineChart {series:[{label,color?,points:[{x,y}]}], width, height, progress?, xScale?/yScale? linear|log, xTicks?/yTicks?, xFormat?/yFormat?, xLabel?/yLabel?, markers?, highlightSeries?}` — SVG line chart for trend/scaling plots; series colors follow `palette.series` in fixed order; direct end-of-line labels are the legend; `progress` sweeps all series together (drive with `useStepProgress`).
+- `EqSteps {parts:[{tex, step?, color?}], display?, size sm..xl}` — one KaTeX equation revealed term by term: a part with `step` fades in at that step's start and is tinted (`color` ?? accent) while the step is active, then settles to text color; hidden terms keep their space, so nothing reflows. Scene-only; unknown step ids render a red inline warning.
 - `Code {children: string, fontSize?, highlightLines?: number[], title?}` — mono code block, no highlighting deps; line numbers + `accentSoft` line highlight.
 - `ParallelFlow {from:V3, to:V3, progress, color?, count?, size?, bidirectional?}` — pure-props 3D data-movement pulses (all-reduce/all-gather); drive with a cycling frame-derived `progress`.
 
@@ -147,11 +149,14 @@ export const weekX: WeekManifest = {
     path: ['attn', 'moe'],                       // N/P presenter order
   },
   slides: [{ kind: 'scene', scene: titleScene }],
+  notes: presenterNotes,                         // speaker notes (see below); optional
   scenes: [titleScene, attentionScene, tpScene], // EVERY scene — drives Composition registration
 };
 ```
 
-Register in `src/weeks/index.ts`. Presenter keys: click/N/P modules · Space next step · ↑ back-step · r restart · Esc back · f fullscreen · d debug HUD.
+Register in `src/weeks/index.ts`. Presenter keys: click/N/P modules · Space next step · ↑ back-step · r restart · Esc back · f fullscreen · d debug HUD · o overview grid (click a card to jump) · s speaker-notes window.
+
+Speaker notes live in a `notes.ts` per week (`Record<string, string>`): keys are node id (`'attn'`), scene id (`'00-title'`), per-step override (`'router/topk'`), `'_home'` for the root canvas — most-specific wins. The `s` key opens `notes.html` in a second window (presenter's monitor, never on stream); it follows the deck live over a BroadcastChannel, showing the current note, step position, next path item, elapsed timer and clock.
 
 ## After generating
 
