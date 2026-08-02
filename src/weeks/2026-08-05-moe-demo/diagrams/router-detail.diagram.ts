@@ -11,6 +11,8 @@ const e = (from: string, to: string, extra?: Record<string, unknown>) => ({
 export const routerDetail = defineDiagram({
   id: 'router-detail',
   direction: 'LR',
+  // wide rank gap so the gate-value labels fit between router and experts
+  layout: { rankGap: 170 },
   nodes: [
     { id: 'x', kind: 'io', label: '토큰 x', variant: 'io' },
     { id: 'router', label: 'Router', variant: 'route', tex: 'g = \\mathrm{softmax}(W_g x)' },

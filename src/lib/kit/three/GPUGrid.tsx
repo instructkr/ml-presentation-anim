@@ -24,8 +24,8 @@ export const GPUGrid: React.FC<GPUGridProps> = ({
   cell = 1.15,
   gap = 0.45,
   activeIndices = [],
-  color = '#2c2c2a',
-  activeColor = '#199e70',
+  color = '#242422',
+  activeColor = '#79b17f',
   labelPrefix = 'GPU',
   showLabels = true,
   opacity = 1,
@@ -58,7 +58,7 @@ export const GPUGrid: React.FC<GPUGridProps> = ({
                 text={`${labelPrefix}${i}`}
                 position={[0, 0.55, 0]}
                 height={0.3}
-                color={isActive ? '#ffffff' : '#898781'}
+                color={isActive ? '#ffffff' : '#807e76'}
                 opacity={opacity}
               />
             ) : null}

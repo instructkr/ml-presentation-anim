@@ -3,7 +3,7 @@ body,
 #root {
   margin: 0;
   height: 100%;
-  background: #0d0d0d;
+  background: #0a0a09;
   overscroll-behavior: none;
 }
 
@@ -16,5 +16,5 @@ button {
 }
 
 ::selection {
-  background: rgba(57, 135, 229, 0.4);
+  background: rgba(208, 143, 131, 0.35);
 }

@@ -38,7 +38,7 @@ export const ParallelFlow: React.FC<ParallelFlowProps> = ({
   from,
   to,
   progress,
-  color = '#3987e5',
+  color = '#5e8dd3',
   count = 3,
   size = 0.09,
   bidirectional = false,

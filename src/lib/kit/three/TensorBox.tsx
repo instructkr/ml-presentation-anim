@@ -41,14 +41,14 @@ export const TensorBox: React.FC<TensorBoxProps> = ({
   dimLabels,
   position = [0, 0, 0],
   maxExtent = 3.4,
-  color = '#3987e5',
+  color = '#5e8dd3',
   opacity = 1,
   split,
   splitProgress = 0,
   partOffsets,
   moveProgress = 0,
   showLabels = true,
-  labelColor = '#c3c2b7',
+  labelColor = '#b8b6ac',
   labelOpacity,
 }) => {
   const [sx, sy, sz] = extents(dims, maxExtent);

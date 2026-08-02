@@ -25,6 +25,8 @@ export interface Palette {
     muted: string;
     grid: string;
     baseline: string;
+    /** diagram connectors / arrows (near-white on dark surfaces) */
+    line: string;
     accent: string;
     accentSoft: string;
     ok: string;
