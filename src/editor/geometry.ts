@@ -44,11 +44,23 @@ export const nodeBoxes = (diagram: Diagram, layout: DiagramLayout, dragged: Posi
     return { id: node.id, x: pos.x, y: pos.y, w: size.w, h: size.h };
   });
 
-/** Group boxes always hug their members, so they follow the nodes as they are dragged. */
+/**
+ * Derived group boxes hug their members. Explicit rectangles are authored
+ * geometry and stay exact in the editor, just as they do at runtime.
+ */
 export const groupRects = (diagram: Diagram, boxes: NodeBox[]): GroupRect[] => {
   const byId = new Map(boxes.map((b) => [b.id, b]));
   const rects: GroupRect[] = [];
   for (const group of diagram.groups) {
+    if (group.rect) {
+      rects.push({
+        id: group.id,
+        label: group.label,
+        variant: group.variant,
+        ...group.rect,
+      });
+      continue;
+    }
     const members = diagram.nodes
       .filter((n) => n.parent === group.id)
       .map((n) => byId.get(n.id))

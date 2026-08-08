@@ -107,7 +107,16 @@ export const ArrowEdge: React.FC<ArrowEdgeProps> = ({
   const d = roundedPath(points);
 
   const last = points[points.length - 1]!;
-  const prev = points[points.length - 2]!;
+  // Imported and GUI-authored routes can contain a duplicate final point. Use
+  // the final non-zero segment as the arrow's actual direction.
+  let prev = points[points.length - 2]!;
+  for (let i = points.length - 2; i >= 0; i--) {
+    const candidate = points[i]!;
+    if (Math.hypot(last.x - candidate.x, last.y - candidate.y) > 0.01) {
+      prev = candidate;
+      break;
+    }
+  }
   const angle = Math.atan2(last.y - prev.y, last.x - prev.x);
   const ah = 11;
   const tip = last;
@@ -125,8 +134,10 @@ export const ArrowEdge: React.FC<ArrowEdgeProps> = ({
   const nx = -at.dy;
   const ny = at.dx;
   const flip = ny > 0 ? -1 : 1; // prefer the upper side
-  const labelX = at.x + nx * flip * 20;
-  const labelY = at.y + ny * flip * 20 + 8;
+  const labelX = at.x + nx * flip * 24;
+  const labelY = at.y + ny * flip * 24;
+  const numericLabel = Boolean(label && /\d/.test(label));
+  const labelWidth = label ? Math.max(50, label.length * (numericLabel ? 11.5 : 12.5) + 20) : 0;
   const opacity = dimmed ? 0.18 : 1;
 
   return (
@@ -159,22 +170,33 @@ export const ArrowEdge: React.FC<ArrowEdgeProps> = ({
         <path d={`M ${tip.x} ${tip.y} L ${left.x} ${left.y} L ${right.x} ${right.y} Z`} fill={stroke} />
       ) : null}
       {label ? (
-        <text
-          x={labelX}
-          y={labelY}
-          textAnchor="middle"
-          style={{
-            fontSize: 21,
-            fontFamily: t.fonts.sans,
-            fill: t.palette.colors.textSecondary,
-            stroke: t.palette.colors.bg,
-            strokeWidth: 7,
-            paintOrder: 'stroke',
-            opacity: draw,
-          }}
-        >
-          {label}
-        </text>
+        <g style={{ opacity: draw }}>
+          <rect
+            x={labelX - labelWidth / 2}
+            y={labelY - 16}
+            width={labelWidth}
+            height={32}
+            rx={8}
+            fill={t.palette.colors.bg}
+            stroke={t.palette.colors.border}
+            strokeWidth={1}
+          />
+          <text
+            x={labelX}
+            y={labelY}
+            textAnchor="middle"
+            dominantBaseline="central"
+            style={{
+              fontSize: 19,
+              fontFamily: numericLabel ? t.fonts.mono : t.fonts.sans,
+              fontVariantNumeric: 'tabular-nums',
+              letterSpacing: numericLabel ? '0.01em' : undefined,
+              fill: t.palette.colors.textSecondary,
+            }}
+          >
+            {label}
+          </text>
+        </g>
       ) : null}
     </g>
   );

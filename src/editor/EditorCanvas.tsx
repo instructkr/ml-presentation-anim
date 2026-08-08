@@ -3,7 +3,6 @@ import {
   Background,
   BackgroundVariant,
   Handle,
-  MarkerType,
   MiniMap,
   Position,
   ReactFlow,
@@ -16,7 +15,9 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import type { Diagram, NodeShape } from '@/lib/diagram/schema';
+import { groupLabelLeft, layoutDiagram, waypointPoints, type Rect } from '@/lib/diagram/layout';
 import { Block } from '@/lib/kit/diagram/Block';
+import { DiagramFlowEdge } from '@/lib/kit/diagram/DiagramFlowEdge';
 import { GroupBox } from '@/lib/kit/diagram/GroupBox';
 import { useTheme } from '@/lib/theme';
 import type { GroupRect, NodeBox } from './geometry';
@@ -28,6 +29,8 @@ export interface EditorCanvasProps {
   onNodesChange: (changes: NodeChange[]) => void;
   /** bump to re-fit the viewport (diagram switch / auto-layout) */
   fitSignal: number;
+  /** positions changed in the GUI, so routes must follow the live boxes */
+  routeFromNodes: boolean;
 }
 
 type BlockNodeData = {
@@ -45,6 +48,7 @@ type BlockNodeData = {
 
 type GroupNodeData = {
   label?: string;
+  labelLeft?: number;
   variant: string;
   dash: 'dashed' | 'dotted';
   w: number;
@@ -89,20 +93,22 @@ const GroupNode: React.FC<NodeProps> = ({ data }) => {
     <div style={{ position: 'relative', pointerEvents: 'none' }}>
       {/* panels can be callout endpoints, so they need handles like any node */}
       <Handle type="target" position={Position.Top} style={{ opacity: 0, pointerEvents: 'none' }} />
-      <GroupBox label={d.label} variant={d.variant} dash={d.dash} width={d.w} height={d.h} />
+      <GroupBox label={d.label} labelLeft={d.labelLeft} variant={d.variant} dash={d.dash} width={d.w} height={d.h} />
       <Handle type="source" position={Position.Bottom} style={{ opacity: 0, pointerEvents: 'none' }} />
     </div>
   );
 };
 
 const nodeTypes = { kitBlock: BlockNode, kitGroup: GroupNode };
+const edgeTypes = { kitEdge: DiagramFlowEdge };
 
-const Inner: React.FC<EditorCanvasProps> = ({ diagram, boxes, groups, onNodesChange, fitSignal }) => {
+const Inner: React.FC<EditorCanvasProps> = ({ diagram, boxes, groups, onNodesChange, fitSignal, routeFromNodes }) => {
   const t = useTheme();
   const rf = useReactFlow();
 
   const nodes = useMemo<RFNode[]>(() => {
     const kindOf = new Map(diagram.nodes.map((n) => [n.id, n]));
+    const boxById = new Map(boxes.map((b) => [b.id, b]));
     const groupNodes: RFNode[] = groups.map((g) => ({
       id: g.id,
       type: 'kitGroup',
@@ -113,6 +119,16 @@ const Inner: React.FC<EditorCanvasProps> = ({ diagram, boxes, groups, onNodesCha
       selectable: false,
       data: {
         label: g.label,
+        labelLeft: g.label
+          ? groupLabelLeft(
+              g,
+              diagram.nodes
+                .filter((n) => n.parent === g.id)
+                .map((n) => boxById.get(n.id))
+                .filter((b): b is NodeBox => Boolean(b)),
+              g.label,
+            )
+          : undefined,
         variant: g.variant,
         dash: diagram.groups.find((x) => x.id === g.id)?.dash ?? 'dashed',
         w: g.w,
@@ -147,25 +163,37 @@ const Inner: React.FC<EditorCanvasProps> = ({ diagram, boxes, groups, onNodesCha
     return [...groupNodes, ...blockNodes];
   }, [diagram, boxes, groups]);
 
-  const edges = useMemo<RFEdge[]>(
-    () =>
-      diagram.edges.map((e) => ({
+  const edges = useMemo<RFEdge[]>(() => {
+    const layout = layoutDiagram(diagram);
+    const laidEdges = new Map(layout.edges.map((e) => [e.edge.id, e.points]));
+    const rects = new Map<string, Rect>([
+      ...boxes.map((b): [string, Rect] => [b.id, b]),
+      ...groups.map((g): [string, Rect] => [g.id, g]),
+    ]);
+    const manual = diagram.nodes.every((n) => n.position);
+    return diagram.edges.map((e) => {
+      const a = rects.get(e.from);
+      const b = rects.get(e.to);
+      const livePoints = a && b ? waypointPoints(a, b, e.waypoints ?? []) : [];
+      const points = routeFromNodes || manual ? livePoints : (laidEdges.get(e.id) ?? livePoints);
+      return {
         id: e.id,
         source: e.from,
         target: e.to,
-        type: 'smoothstep',
-        label: e.label,
-        labelStyle: { fill: t.palette.colors.textSecondary, fontSize: 15, fontFamily: t.fonts.sans },
-        labelBgStyle: { fill: t.palette.colors.bg, fillOpacity: 0.9 },
-        style: {
-          stroke: e.color ?? '#8a8a84',
+        type: 'kitEdge',
+        data: {
+          points,
+          label: e.label,
+          labelPos: e.labelPos,
+          color: e.color,
+          dashed: e.style === 'dashed',
+          dotted: e.style === 'dotted',
+          arrow: e.arrow,
           strokeWidth: 2.5,
-          strokeDasharray: e.style === 'dashed' ? '8 6' : undefined,
         },
-        markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20, color: e.color ?? '#8a8a84' },
-      })),
-    [diagram, t],
-  );
+      };
+    });
+  }, [diagram, boxes, groups, routeFromNodes]);
 
   useEffect(() => {
     rf.fitView({ padding: 0.14, duration: 400 });
@@ -177,6 +205,7 @@ const Inner: React.FC<EditorCanvasProps> = ({ diagram, boxes, groups, onNodesCha
       nodes={nodes}
       edges={edges}
       nodeTypes={nodeTypes}
+      edgeTypes={edgeTypes}
       onNodesChange={onNodesChange}
       fitView
       fitViewOptions={{ padding: 0.14, maxZoom: 1.05 }}

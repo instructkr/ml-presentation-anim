@@ -245,6 +245,7 @@ export const EditorApp: React.FC = () => {
               groups={groups}
               onNodesChange={onNodesChange}
               fitSignal={fitSignal}
+              routeFromNodes={Object.keys(dragged).length > 0}
             />
           ) : null}
         </div>

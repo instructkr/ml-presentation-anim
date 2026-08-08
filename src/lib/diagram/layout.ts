@@ -228,9 +228,33 @@ export const waypointPoints = (
   gap = 4,
 ): { x: number; y: number }[] => {
   if (waypoints.length === 0) return connectorPoints(a, b, gap);
-  const first = waypoints[0]!;
-  const last = waypoints[waypoints.length - 1]!;
-  return [orthoBorderPoint(a, first, gap), ...waypoints, orthoBorderPoint(b, last, gap)];
+  const inside = (r: Rect, p: { x: number; y: number }) =>
+    p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
+
+  // GUI-authored routes commonly leave an elbow on (or just inside) a node.
+  // Discard those interior points and approach from the nearest exterior one,
+  // preventing the final segment from reversing inside the target.
+  const usable = [...waypoints];
+  while (usable.length > 0 && inside(a, usable[0]!)) usable.shift();
+  while (usable.length > 0 && inside(b, usable[usable.length - 1]!)) usable.pop();
+
+  const first = usable[0] ?? centerOf(b);
+  const last = usable[usable.length - 1] ?? centerOf(a);
+  const raw = [orthoBorderPoint(a, first, gap), ...usable, orthoBorderPoint(b, last, gap)];
+
+  // Zero-length final segments give arrowheads an arbitrary angle. Remove
+  // duplicates and unnecessary collinear points while retaining every elbow.
+  const deduped = raw.filter((p, i) => {
+    const prev = raw[i - 1];
+    return !prev || Math.hypot(p.x - prev.x, p.y - prev.y) > 0.01;
+  });
+  return deduped.filter((p, i) => {
+    if (i === 0 || i === deduped.length - 1) return true;
+    const prev = deduped[i - 1]!;
+    const next = deduped[i + 1]!;
+    const cross = (p.x - prev.x) * (next.y - p.y) - (p.y - prev.y) * (next.x - p.x);
+    return Math.abs(cross) > 0.01;
+  });
 };
 
 /**
