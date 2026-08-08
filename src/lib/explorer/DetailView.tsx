@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
+import type { Diagram } from '../diagram/schema';
 import { useTheme } from '../theme';
 import { FitScale } from '../kit/layout/FitScale';
 import { ExplorerCanvas } from './ExplorerCanvas';
@@ -16,6 +17,10 @@ export interface DetailViewProps {
   revealed?: boolean;
   /** forwarded to ScenePlayer so App can broadcast step position to the notes window */
   onStepChange?: (stepIdx: number, stepId: string) => void;
+  /** root/parent architecture kept visible while the explanation plays */
+  contextDiagram?: Diagram;
+  /** module highlighted in the persistent architecture rail */
+  contextNodeId?: string;
 }
 
 const tabLabel = (d: Detail, i: number): string => {
@@ -34,7 +39,7 @@ const tabLabel = (d: Detail, i: number): string => {
   }
 };
 
-/** Full-screen takeover shown after zooming into a module. */
+/** Contextual workspace shown after the overview camera settles on a module. */
 export const DetailView: React.FC<DetailViewProps> = ({
   title,
   breadcrumbs,
@@ -44,9 +49,23 @@ export const DetailView: React.FC<DetailViewProps> = ({
   playerHandleRef,
   revealed = false,
   onStepChange,
+  contextDiagram,
+  contextNodeId,
 }) => {
   const t = useTheme();
   const item = items[Math.min(activeTab, items.length - 1)]!;
+  const [walking, setWalking] = useState(false);
+
+  const stopWalkthrough = useCallback(() => {
+    setWalking(false);
+    playerHandleRef.current?.pause();
+  }, [playerHandleRef]);
+
+  const handleComplete = useCallback(() => {
+    const nextScene = items.findIndex((candidate, i) => i > activeTab && candidate.kind === 'scene');
+    if (walking && nextScene >= 0) onTab(nextScene);
+    else setWalking(false);
+  }, [activeTab, items, onTab, walking]);
 
   return (
     <div
@@ -57,6 +76,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
         display: 'flex',
         flexDirection: 'column',
         zIndex: 10,
+        animation: 'detail-enter 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both',
       }}
     >
       <div
@@ -92,7 +112,10 @@ export const DetailView: React.FC<DetailViewProps> = ({
             {items.map((d, i) => (
               <button
                 key={i}
-                onClick={() => onTab(i)}
+                onClick={() => {
+                  stopWalkthrough();
+                  onTab(i);
+                }}
                 style={{
                   background: i === activeTab ? t.palette.colors.accentSoft : 'transparent',
                   color: i === activeTab ? t.palette.colors.text : t.palette.colors.muted,
@@ -104,54 +127,131 @@ export const DetailView: React.FC<DetailViewProps> = ({
                   cursor: 'pointer',
                 }}
               >
+                <span style={{ opacity: 0.62, marginRight: 7, fontFamily: t.fonts.mono }}>
+                  {String(i + 1).padStart(2, '0')}
+                </span>
                 {tabLabel(d, i)}
               </button>
             ))}
           </div>
         ) : null}
+        {item.kind === 'scene' ? (
+          <button
+            onClick={() => {
+              if (walking) stopWalkthrough();
+              else setWalking(true);
+            }}
+            aria-label={walking ? '워크스루 일시정지' : '전체 워크스루 재생'}
+            style={{
+              border: `1px solid ${walking ? t.palette.colors.accent : t.palette.colors.border}`,
+              borderRadius: 999,
+              background: walking ? t.palette.colors.accentSoft : t.palette.colors.surface,
+              color: t.palette.colors.text,
+              padding: '8px 15px',
+              cursor: 'pointer',
+              fontFamily: t.fonts.sans,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {walking ? 'Ⅱ  멈춤' : '▶  전체 워크스루'}
+          </button>
+        ) : null}
         <div style={{ color: t.palette.colors.muted, fontSize: 15, fontFamily: t.fonts.mono }}>
-          Space: 다음 단계 · Esc: 돌아가기 · o: 개요 · s: 노트
+          Space 다음 · Esc 돌아가기 · o 개요
         </div>
       </div>
 
-      <div style={{ flex: 1, minHeight: 0, position: 'relative', padding: 18 }}>
-        {item.kind === 'scene' ? (
-          <ScenePlayer
-            key={`${title}-${activeTab}`}
-            ref={(h) => {
-              playerHandleRef.current = h;
-            }}
-            scene={item.scene}
-            initialMode={revealed ? 'end' : 'start'}
-            onStepChange={onStepChange}
-          />
-        ) : null}
-        {item.kind === 'interactive' ? <item.component /> : null}
-        {item.kind === 'note' ? (
-          <div
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          display: 'grid',
+          gridTemplateColumns: contextDiagram ? 'minmax(250px, 20vw) minmax(0, 1fr)' : '1fr',
+        }}
+      >
+        {contextDiagram ? (
+          <aside
             style={{
-              maxWidth: 1150,
-              margin: '40px auto',
-              fontSize: t.fontSize.sm,
-              lineHeight: 1.7,
-              color: t.palette.colors.textSecondary,
-              fontFamily: t.fonts.sans,
-              wordBreak: 'keep-all',
+              minWidth: 0,
+              minHeight: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              borderRight: `1px solid ${t.palette.colors.border}`,
+              background: t.palette.colors.bg,
             }}
           >
-            {item.content}
-          </div>
+            <div style={{ padding: '18px 18px 12px', fontFamily: t.fonts.sans }}>
+              <div
+                style={{
+                  color: t.palette.colors.accent,
+                  fontFamily: t.fonts.mono,
+                  fontSize: 13,
+                  letterSpacing: '0.12em',
+                  marginBottom: 6,
+                }}
+              >
+                ARCHITECTURE CONTEXT
+              </div>
+              <div style={{ color: t.palette.colors.text, fontSize: 20, fontWeight: 600 }}>{title}</div>
+              <div style={{ color: t.palette.colors.muted, fontSize: 14, marginTop: 4 }}>
+                드래그·스크롤로 전체 흐름을 계속 확인할 수 있습니다.
+              </div>
+            </div>
+            <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+              <ExplorerCanvas
+                diagram={contextDiagram}
+                details={{}}
+                visited={new Set()}
+                onOpen={() => undefined}
+                activeIds={contextNodeId ? [contextNodeId] : []}
+                interactive={false}
+                showMiniMap={false}
+              />
+            </div>
+          </aside>
         ) : null}
-        {item.kind === 'diagram' ? (
-          <div style={{ position: 'absolute', inset: 18 }}>
-            <ExplorerCanvas
-              diagram={item.diagram}
-              details={item.details ?? {}}
-              visited={new Set()}
-              onOpen={() => undefined}
+
+        <div style={{ minWidth: 0, minHeight: 0, position: 'relative', padding: 18 }}>
+          {item.kind === 'scene' ? (
+            <ScenePlayer
+              key={`${title}-${activeTab}`}
+              ref={(h) => {
+                playerHandleRef.current = h;
+              }}
+              scene={item.scene}
+              initialMode={walking ? 'start' : revealed ? 'end' : 'start'}
+              autoWalkthrough={walking}
+              onComplete={handleComplete}
+              onStepChange={onStepChange}
             />
-          </div>
-        ) : null}
+          ) : null}
+          {item.kind === 'interactive' ? <item.component /> : null}
+          {item.kind === 'note' ? (
+            <div
+              style={{
+                maxWidth: 1150,
+                margin: '40px auto',
+                fontSize: t.fontSize.sm,
+                lineHeight: 1.7,
+                color: t.palette.colors.textSecondary,
+                fontFamily: t.fonts.sans,
+                wordBreak: 'keep-all',
+              }}
+            >
+              {item.content}
+            </div>
+          ) : null}
+          {item.kind === 'diagram' ? (
+            <div style={{ position: 'absolute', inset: 18 }}>
+              <ExplorerCanvas
+                diagram={item.diagram}
+                details={item.details ?? {}}
+                visited={new Set()}
+                onOpen={() => undefined}
+              />
+            </div>
+          ) : null}
+        </div>
       </div>
     </div>
   );

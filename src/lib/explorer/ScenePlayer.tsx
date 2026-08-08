@@ -15,6 +15,8 @@ export interface ScenePlayerHandle {
   advance(): boolean;
   back(): void;
   restart(): void;
+  playAll(): void;
+  pause(): void;
 }
 
 export interface ScenePlayerProps {
@@ -23,6 +25,10 @@ export interface ScenePlayerProps {
   initialMode?: 'start' | 'end';
   /** fired whenever the current step changes or settles (incl. mount + restart) */
   onStepChange?: (stepIdx: number, stepId: string) => void;
+  /** play the entire scene without pausing at beat boundaries */
+  autoWalkthrough?: boolean;
+  /** fired after a full walkthrough reaches the final frame */
+  onComplete?: () => void;
 }
 
 /**
@@ -31,14 +37,22 @@ export interface ScenePlayerProps {
  * pauses there. Never polls — rides the per-frame 'frameupdate' event.
  */
 export const ScenePlayer = forwardRef<ScenePlayerHandle, ScenePlayerProps>(
-  ({ scene, initialMode = 'start', onStepChange }, ref) => {
+  ({ scene, initialMode = 'start', onStepChange, autoWalkthrough = false, onComplete }, ref) => {
     const t = useTheme();
     const playerRef = useRef<PlayerRef>(null);
     const targetRef = useRef<number | null>(null);
+    const walkthroughRef = useRef(false);
     const stepIdxRef = useRef(0);
     const [stepIdx, setStepIdx] = useState(0);
+    const [playerReady, setPlayerReady] = useState(0);
     const { meta } = scene;
     const lastIdx = meta.steps.length - 1;
+
+    const attachPlayer = useCallback((player: PlayerRef | null) => {
+      if (playerRef.current === player) return;
+      playerRef.current = player;
+      if (player) setPlayerReady((n) => n + 1);
+    }, []);
 
     // Kept in a ref so a changing callback identity never re-runs the
     // mount effect below (which would restart the scene mid-talk).
@@ -46,6 +60,10 @@ export const ScenePlayer = forwardRef<ScenePlayerHandle, ScenePlayerProps>(
     useEffect(() => {
       onStepChangeRef.current = onStepChange;
     }, [onStepChange]);
+    const onCompleteRef = useRef(onComplete);
+    useEffect(() => {
+      onCompleteRef.current = onComplete;
+    }, [onComplete]);
 
     const emitStep = useCallback(
       (idx: number) => {
@@ -62,6 +80,7 @@ export const ScenePlayer = forwardRef<ScenePlayerHandle, ScenePlayerProps>(
         p.pause();
         p.seekTo(frame);
         targetRef.current = null;
+        walkthroughRef.current = false;
         stepIdxRef.current = idx;
         setStepIdx(idx);
         emitStep(idx);
@@ -74,24 +93,50 @@ export const ScenePlayer = forwardRef<ScenePlayerHandle, ScenePlayerProps>(
       const stepMeta = meta.steps[idx];
       if (!p || !stepMeta) return;
       targetRef.current = stepMeta.endFrame - 1;
+      walkthroughRef.current = false;
       stepIdxRef.current = idx;
       setStepIdx(idx);
       emitStep(idx);
       p.play();
     }, [meta, emitStep]);
 
+    const playAll = useCallback((fromStart = true) => {
+      const p = playerRef.current;
+      if (!p) return;
+      if (fromStart) {
+        p.seekTo(0);
+        stepIdxRef.current = 0;
+        setStepIdx(0);
+        emitStep(0);
+      }
+      targetRef.current = meta.durationInFrames - 1;
+      walkthroughRef.current = true;
+      p.play();
+    }, [emitStep, meta.durationInFrames]);
+
     useEffect(() => {
       const p = playerRef.current;
       if (!p) return;
       const onFrame = (e: { detail: { frame: number } }) => {
+        let liveIdx = 0;
+        for (const s of meta.steps) {
+          if (e.detail.frame >= s.startFrame) liveIdx = s.index;
+        }
+        if (liveIdx !== stepIdxRef.current) {
+          stepIdxRef.current = liveIdx;
+          setStepIdx(liveIdx);
+          emitStep(liveIdx);
+        }
         const target = targetRef.current;
         if (target !== null && e.detail.frame >= target) {
-          settle(stepIdxRef.current, target);
+          const completedWalkthrough = walkthroughRef.current;
+          settle(completedWalkthrough ? lastIdx : stepIdxRef.current, target);
+          if (completedWalkthrough) onCompleteRef.current?.();
         }
       };
       p.addEventListener('frameupdate', onFrame);
       return () => p.removeEventListener('frameupdate', onFrame);
-    }, [settle]);
+    }, [emitStep, lastIdx, meta.steps, settle]);
 
     useEffect(() => {
       if (initialMode === 'end') {
@@ -100,8 +145,11 @@ export const ScenePlayer = forwardRef<ScenePlayerHandle, ScenePlayerProps>(
       } else {
         playToStep(0);
       }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [scene]);
+    }, [scene, playerReady, initialMode, lastIdx, meta.steps, playToStep, settle]);
+
+    useEffect(() => {
+      if (playerReady && autoWalkthrough) playAll(true);
+    }, [autoWalkthrough, playAll, playerReady, scene]);
 
     useImperativeHandle(
       ref,
@@ -129,8 +177,14 @@ export const ScenePlayer = forwardRef<ScenePlayerHandle, ScenePlayerProps>(
           playerRef.current?.seekTo(0);
           playToStep(0);
         },
+        playAll: () => playAll(true),
+        pause: () => {
+          playerRef.current?.pause();
+          targetRef.current = null;
+          walkthroughRef.current = false;
+        },
       }),
-      [playToStep, settle, lastIdx, meta],
+      [playAll, playToStep, settle, lastIdx, meta],
     );
 
     return (
@@ -148,12 +202,13 @@ export const ScenePlayer = forwardRef<ScenePlayerHandle, ScenePlayerProps>(
             }}
           >
             <Player
-              ref={playerRef}
+              ref={attachPlayer}
               component={scene.Component}
               durationInFrames={meta.durationInFrames}
               compositionWidth={meta.width}
               compositionHeight={meta.height}
               fps={meta.fps}
+              initialFrame={initialMode === 'end' ? meta.durationInFrames - 1 : 0}
               controls={false}
               clickToPlay={false}
               doubleClickToFullscreen={false}

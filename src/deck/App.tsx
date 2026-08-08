@@ -435,6 +435,9 @@ export const App: React.FC = () => {
           const advanced = playerHandleRef.current?.advance();
           if (inSlides && advanced === false) {
             setSlideIdx((i) => Math.min((week.slides?.length ?? 1) - 1, i + 1));
+          } else if (!inSlides && open && advanced === false) {
+            const nextScene = open.items.findIndex((item, i) => i > open.tab && item.kind === 'scene');
+            if (nextScene >= 0) setOpen((current) => (current ? { ...current, tab: nextScene } : current));
           }
           break;
         }
@@ -635,6 +638,8 @@ export const App: React.FC = () => {
           playerHandleRef={playerHandleRef}
           revealed={open.wasVisited}
           onStepChange={handleStepChange}
+          contextDiagram={level.diagram}
+          contextNodeId={open.nodeId}
         />
       ) : null}
 
