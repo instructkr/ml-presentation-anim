@@ -4,3 +4,6 @@ out/
 .omc/
 *.log
 .DS_Store
+
+# reference papers kept locally, never committed
+*.pdf
