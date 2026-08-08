@@ -85,3 +85,71 @@ export const Callout: React.FC<{
     </div>
   );
 };
+
+export const ExplainerCard: React.FC<{
+  eyebrow?: React.ReactNode;
+  index?: string | number;
+  title: React.ReactNode;
+  tone?: 'info' | 'ok' | 'warn';
+  children?: React.ReactNode;
+  style?: React.CSSProperties;
+}> = ({ eyebrow, index, title, tone = 'info', children, style }) => {
+  const t = useTheme();
+  const accent =
+    tone === 'ok' ? t.palette.colors.ok : tone === 'warn' ? t.palette.colors.warn : t.palette.colors.accent;
+  return (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: index === undefined ? '1fr' : '68px 1fr',
+        columnGap: t.space(3),
+        padding: `${t.space(3)}px 0`,
+        borderTop: `1px solid ${t.palette.colors.border}`,
+        ...style,
+      }}
+    >
+      {index !== undefined ? (
+        <div
+          style={{
+            color: accent,
+            fontFamily: t.fonts.mono,
+            fontSize: t.fontSize.md,
+            fontVariantNumeric: 'tabular-nums',
+            lineHeight: 1,
+          }}
+        >
+          {String(index).padStart(2, '0')}
+        </div>
+      ) : null}
+      <div>
+        {eyebrow ? (
+          <div
+            style={{
+              color: accent,
+              fontFamily: t.fonts.mono,
+              fontSize: t.fontSize.xs,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              marginBottom: t.space(1),
+            }}
+          >
+            {eyebrow}
+          </div>
+        ) : null}
+        <div style={{ color: t.palette.colors.text, fontSize: t.fontSize.md, fontWeight: 600 }}>{title}</div>
+        {children ? (
+          <div
+            style={{
+              color: t.palette.colors.textSecondary,
+              fontSize: t.fontSize.sm,
+              lineHeight: 1.55,
+              marginTop: t.space(1),
+            }}
+          >
+            {children}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+};

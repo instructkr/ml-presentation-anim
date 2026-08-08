@@ -14,5 +14,6 @@ export * from './three/TensorBox';
 export * from './three/GPUGrid';
 export * from './three/ParallelFlow';
 export * from './three/BillboardLabel';
+export * from './tensors/TensorMatrix';
 export * from './charts/BarChart';
 export * from './charts/LineChart';

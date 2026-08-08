@@ -2,10 +2,10 @@ import React, { useMemo } from 'react';
 import { Easing, interpolate, useCurrentFrame } from 'remotion';
 import type { Diagram } from '../../diagram/schema';
 import {
-  connectorPoints,
   groupBounds,
   groupLabelLeft,
   layoutDiagram,
+  waypointPoints,
   type LaidOutNode,
   type Rect,
 } from '../../diagram/layout';
@@ -21,6 +21,15 @@ export interface NodeOffset {
   dy: number;
 }
 
+export interface DiagramCamera {
+  /** node/group ids the 2D camera should frame for this beat */
+  focus: string[];
+  /** breathing room in diagram pixels around the focused elements */
+  padding?: number;
+  /** optional tighter/looser cap than the DiagramView-level maxScale */
+  maxScale?: number;
+}
+
 export interface StepEffect {
   /** ids become visible at this step and stay visible (cumulative) */
   reveal?: string[];
@@ -30,6 +39,11 @@ export interface StepEffect {
   pulse?: string[];
   /** ids fade back while this step is active; 'others' = everything not otherwise referenced this step */
   dim?: string[] | 'others';
+  /**
+   * A deterministic, frame-derived 2D camera move. The most recent camera
+   * persists into later beats until another step supplies one.
+   */
+  camera?: DiagramCamera;
   /**
    * node id → offset in diagram px (FLIP-style glide). Cumulative like `reveal`:
    * the offset eases in across this step's animation window and persists for every
@@ -98,7 +112,13 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
         unknownIds.push(`step:${stepId}`);
         continue;
       }
-      for (const list of [fx.reveal, fx.highlight, fx.pulse, Array.isArray(fx.dim) ? fx.dim : []]) {
+      for (const list of [
+        fx.reveal,
+        fx.highlight,
+        fx.pulse,
+        Array.isArray(fx.dim) ? fx.dim : [],
+        fx.camera?.focus,
+      ]) {
         for (const id of list ?? []) {
           if (!knownIds.has(id)) unknownIds.push(id);
         }
@@ -172,6 +192,23 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
       }),
     [layout, rects, movedIds],
   );
+
+  /** Nodes and groups share one live endpoint map during morphs. */
+  const endpointRects = useMemo(() => {
+    const m = new Map(rects);
+    layout.groups.forEach((g, i) => m.set(g.group.id, groupRects[i]!));
+    return m;
+  }, [layout.groups, rects, groupRects]);
+
+  const movedEndpoints = useMemo(() => {
+    const ids = new Set(movedIds);
+    for (const g of layout.groups) {
+      if (layout.nodes.some((n) => n.node.parent === g.group.id && movedIds.has(n.node.id))) {
+        ids.add(g.group.id);
+      }
+    }
+    return ids;
+  }, [layout.groups, layout.nodes, movedIds]);
 
   /**
    * Fit the view to the union of every morph state so the scale never jumps
@@ -253,21 +290,87 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
     return { highlight, pulse, dim };
   }, [frame, meta, stepEffects, knownIds]);
 
-  const scale = Math.min(width / extent.w, height / extent.h, maxScale);
-  const offsetX = (width - extent.w * scale) / 2;
-  const offsetY = (height - extent.h * scale) / 2;
+  type View = { scale: number; x: number; y: number };
+
+  const cameraForStep = (stepIndex: number): DiagramCamera | undefined => {
+    for (let i = stepIndex; i >= 0; i--) {
+      const camera = stepEffects?.[meta.steps[i]!.id]?.camera;
+      if (camera) return camera;
+    }
+    return undefined;
+  };
+
+  const viewFor = (camera?: DiagramCamera): View => {
+    const focusRects = camera?.focus
+      .map((id) => {
+        const node = rects.get(id);
+        if (node) return node;
+        const gi = layout.groups.findIndex((g) => g.group.id === id);
+        return gi >= 0 ? groupRects[gi] : undefined;
+      })
+      .filter((r): r is Rect => Boolean(r));
+    const pad = camera?.padding ?? 36;
+    const bounds = focusRects?.length
+      ? {
+          x: Math.min(...focusRects.map((r) => r.x)) - pad,
+          y: Math.min(...focusRects.map((r) => r.y)) - pad,
+          w:
+            Math.max(...focusRects.map((r) => r.x + r.w)) -
+            Math.min(...focusRects.map((r) => r.x)) +
+            pad * 2,
+          h:
+            Math.max(...focusRects.map((r) => r.y + r.h)) -
+            Math.min(...focusRects.map((r) => r.y)) +
+            pad * 2,
+        }
+      : { x: -extent.shiftX, y: -extent.shiftY, w: extent.w, h: extent.h };
+    const scale = Math.min(
+      width / Math.max(1, bounds.w),
+      height / Math.max(1, bounds.h),
+      camera?.maxScale ?? maxScale,
+    );
+    return {
+      scale,
+      x: (width - bounds.w * scale) / 2 - (bounds.x + extent.shiftX) * scale,
+      y: (height - bounds.h * scale) / 2 - (bounds.y + extent.shiftY) * scale,
+    };
+  };
+
+  let stepIndex = 0;
+  for (const s of meta.steps) {
+    if (frame >= s.startFrame) stepIndex = s.index;
+  }
+  const activeStep = meta.steps[stepIndex]!;
+  const cameraSpan = Math.max(1, Math.min(activeStep.animEndFrame - activeStep.startFrame, meta.fps * 0.8));
+  const cameraProgress = interpolate(
+    frame,
+    [activeStep.startFrame, activeStep.startFrame + cameraSpan],
+    [0, 1],
+    {
+      extrapolateLeft: 'clamp',
+      extrapolateRight: 'clamp',
+      easing: Easing.inOut(Easing.cubic),
+    },
+  );
+  const fromView = viewFor(stepIndex > 0 ? cameraForStep(stepIndex - 1) : undefined);
+  const toView = viewFor(cameraForStep(stepIndex));
+  const cameraView = {
+    scale: fromView.scale + (toView.scale - fromView.scale) * cameraProgress,
+    x: fromView.x + (toView.x - fromView.x) * cameraProgress,
+    y: fromView.y + (toView.y - fromView.y) * cameraProgress,
+  };
   const pulsePhase = (frame % 24) / 24;
 
   return (
-    <div style={{ position: 'relative', width, height }}>
+    <div style={{ position: 'relative', width, height, overflow: 'hidden' }}>
       <div
         style={{
           position: 'absolute',
-          left: offsetX,
-          top: offsetY,
+          left: 0,
+          top: 0,
           width: extent.w,
           height: extent.h,
-          transform: `scale(${scale}) translate(${extent.shiftX}px, ${extent.shiftY}px)`,
+          transform: `translate(${cameraView.x}px, ${cameraView.y}px) scale(${cameraView.scale}) translate(${extent.shiftX}px, ${extent.shiftY}px)`,
           transformOrigin: 'top left',
         }}
       >
@@ -277,15 +380,19 @@ export const DiagramView: React.FC<DiagramViewProps> = ({
           height={extent.h}
         >
           {layout.edges.map((e) => {
-            // a hand-routed edge keeps its waypoints; only auto-routed ones
-            // re-derive as straight connectors while their endpoints glide
+            // Re-clip both straight and hand-routed paths while an endpoint
+            // moves. Elbows stay fixed; the node-facing segment follows the
+            // live node or group box.
             const morphing =
-              !e.edge.waypoints?.length &&
-              (movedIds.has(e.edge.from) || movedIds.has(e.edge.to)) &&
-              rects.has(e.edge.from) &&
-              rects.has(e.edge.to);
+              (movedEndpoints.has(e.edge.from) || movedEndpoints.has(e.edge.to)) &&
+              endpointRects.has(e.edge.from) &&
+              endpointRects.has(e.edge.to);
             const points = morphing
-              ? connectorPoints(rects.get(e.edge.from)!, rects.get(e.edge.to)!)
+              ? waypointPoints(
+                  endpointRects.get(e.edge.from)!,
+                  endpointRects.get(e.edge.to)!,
+                  e.edge.waypoints ?? [],
+                )
               : e.points;
             return (
               <ArrowEdge

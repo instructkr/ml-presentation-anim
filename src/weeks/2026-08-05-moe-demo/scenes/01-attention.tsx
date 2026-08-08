@@ -24,18 +24,23 @@ export const attentionScene = defineScene(
           stepEffects={{
             qkv: {
               reveal: ['x', 'wq', 'wk', 'wv', 'q', 'k', 'v', 'e-x-wq', 'e-x-wk', 'e-x-wv', 'e-wq-q', 'e-wk-k', 'e-wv-v'],
+              highlight: ['wq', 'wk', 'wv'],
+              camera: { focus: ['x', 'wq', 'wk', 'wv', 'q', 'k', 'v'], padding: 70, maxScale: 1.16 },
             },
             scores: {
               reveal: ['scores', 'e-q-scores', 'e-k-scores'],
               highlight: ['q', 'k', 'scores'],
+              camera: { focus: ['q', 'k', 'scores'], padding: 78, maxScale: 1.24 },
             },
             softmax: {
               reveal: ['softmax', 'e-scores-softmax'],
               highlight: ['softmax'],
+              camera: { focus: ['scores', 'softmax'], padding: 86, maxScale: 1.28 },
             },
             output: {
               reveal: ['weighted', 'out', 'e-softmax-weighted', 'e-v-weighted', 'e-weighted-out'],
               highlight: ['weighted'],
+              camera: { focus: ['softmax', 'v', 'weighted', 'out'], padding: 78, maxScale: 1.2 },
             },
           }}
         />
