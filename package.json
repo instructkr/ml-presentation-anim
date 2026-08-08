@@ -28,7 +28,7 @@
     "react-dom": "^19.0.0",
     "remotion": "^4.0.236",
     "three": "0.171.0",
-    "zod": "^3.22.3"
+    "zod": "4.4.3"
   },
   "devDependencies": {
     "@fontsource/jetbrains-mono": "^5.1.0",
