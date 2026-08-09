@@ -32,8 +32,9 @@ const Scene: React.FC = () => {
             height={560}
             maxScale={1.28}
             stepEffects={{
+              // 'x' stays out of every reveal — the frame-0 anchor (hard rule 6)
               tokens: {
-                reveal: ['x', 'router', 'e-x-router'],
+                reveal: ['router', 'e-x-router'],
                 highlight: ['x', 'router'],
                 camera: { focus: ['x', 'router'], padding: 84, maxScale: 1.18 },
               },

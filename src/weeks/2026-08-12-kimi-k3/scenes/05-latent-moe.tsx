@@ -29,7 +29,8 @@ export const latentMoeScene = defineScene(
           width={1776}
           height={410}
           stepEffects={{
-            shared: { reveal: ['x', 'shared', 'e-x-shared'], highlight: ['shared'] },
+            // 'x' stays out of every reveal — the frame-0 anchor (hard rule 6)
+            shared: { reveal: ['shared', 'e-x-shared'], highlight: ['shared'] },
             latent: { reveal: ['down', 'e-x-down'], highlight: ['down'] },
             route: { reveal: ['router', 'e-x-router'], highlight: ['router'] },
             experts: {

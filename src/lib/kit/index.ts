@@ -1,5 +1,6 @@
 export * from './layout/SlideFrame';
 export * from './layout/containers';
+export * from './layout/Fill';
 export * from './layout/FitScale';
 export * from './text/text';
 export * from './text/Code';

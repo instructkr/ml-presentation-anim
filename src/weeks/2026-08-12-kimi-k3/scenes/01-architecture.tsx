@@ -26,8 +26,9 @@ export const architectureScene = defineScene(
           width={1250}
           height={820}
           stepEffects={{
-            spine: { reveal: k3Ids.spine },
-            attnres: { reveal: k3Ids.attnRes },
+            // panel box + Embedding stay visible from frame 0 — the anchor (hard rule 6)
+            spine: { reveal: k3Ids.spine.filter((id) => id !== 'block-panel') },
+            attnres: { reveal: k3Ids.attnRes.filter((id) => id !== 'embedding') },
             smoe: { reveal: k3Ids.smoePanel, highlight: ['smoe-hi', 'smoe-lo'] },
             kda: { reveal: k3Ids.kdaPanel, highlight: ['kda'] },
           }}

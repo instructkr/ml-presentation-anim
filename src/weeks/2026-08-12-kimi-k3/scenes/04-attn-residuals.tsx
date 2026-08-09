@@ -28,7 +28,8 @@ export const attnResScene = defineScene(
           width={1776}
           height={520}
           stepEffects={{
-            bottleneck: { reveal: ['emb'], highlight: ['emb'] },
+            // 'emb' never reveals — the frame-0 anchor (hard rule 6); beat 1 just lights it
+            bottleneck: { highlight: ['emb'] },
             sources: { reveal: ['b1', 'b2', 'bn', 'partial'], highlight: ['b1', 'b2', 'bn', 'partial'] },
             query: { reveal: ['query', 'attend', 'e-query-attend'], highlight: ['query'], pulse: ['e-query-attend'] },
             attend: {

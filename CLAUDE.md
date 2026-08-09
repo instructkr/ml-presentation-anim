@@ -19,11 +19,13 @@ Weekly LLM-paper presentations as an **interactive explorable**: the architectur
 2. **Never `Math.random()` / `Date.now()`** in scenes — use `random(seed)` from remotion if needed.
 3. **All colors/sizes from tokens** (`useTheme()`); never hardcode hex in scenes.
 4. **Every step ends static**: animations must complete within the step's `seconds`; add `hold` for settle time. The presenter pause lands on the step's last frame.
-5. **Register weeks only in `src/weeks/index.ts`** (no globs — dual bundlers).
-6. Scene ids are `NN-kebab-name`; composition ids become `<weekId>--<sceneId>`.
-7. Korean text: kit components already set `word-break: keep-all` — don't override.
-8. For any Remotion API question fetch `https://remotion.dev/docs/<page>.md` (raw markdown) — do not guess.
-9. LaTeX in TSX: escape backslashes — `{'\\mathrm{softmax}(W_g x)'}`.
+5. **Never hand-compute pixel budgets in scenes** — lay out with `WalkthroughStage`/`Stack`/`Grid` and let `DiagramView` (no width/height) fill its cell; components that need numbers (charts) get them from `<Fill>`.
+6. **Frame 0 is never bare**: keep the figure's anchor (input node, equation shell, chart axes) out of every `reveal`/`Appear` so it shows from the first frame; beat 1 draws the rest. Studio, renders and thumbnails all expose frame 0.
+7. **Register weeks only in `src/weeks/index.ts`** (no globs — dual bundlers).
+8. Scene ids are `NN-kebab-name`; composition ids become `<weekId>--<sceneId>`.
+9. Korean text: kit components already set `word-break: keep-all` — don't override.
+10. For any Remotion API question fetch `https://remotion.dev/docs/<page>.md` (raw markdown) — do not guess.
+11. LaTeX in TSX: escape backslashes — `{'\\mathrm{softmax}(W_g x)'}`.
 
 ## File layout
 
@@ -38,10 +40,12 @@ src/lib/{theme,timeline,diagram,kit,explorer}   # the framework — extend, don'
 
 ## Authoring a scene (the pattern)
 
+Beats first: 3–6 named steps, each one thing the presenter says, 1.6–3.0 s each. Then pick ONE layout preset and drop media into it — never hand-place with pixel widths. Worked recipes for the four common scene shapes live in `.claude/skills/new-scene/recipes.md`; start from the closest one.
+
 ```tsx
 import React from 'react';
-import { Appear, defineScene, step, useStepProgress } from '@/lib/timeline';
-import { Callout, DiagramView, SlideFrame, Stack, Tex } from '@/lib/kit';
+import { Appear, defineScene, step } from '@/lib/timeline';
+import { Callout, DiagramView, SlideFrame, Stack, Tex, WalkthroughStage } from '@/lib/kit';
 import { myDiagram } from '../diagrams/my.diagram';
 
 export const myScene = defineScene(
@@ -56,31 +60,38 @@ export const myScene = defineScene(
   },
   () => (
     <SlideFrame title="Router" footer="ML Weekly">
-      <Stack direction="row" gap={5} style={{ height: '100%' }}>
-        <DiagramView
-          diagram={myDiagram}
-          width={1150}
-          height={780}
-          stepEffects={{
-            arrive: { reveal: ['x', 'router', 'e-x-router'] },
-            score:  { pulse: ['e-router-expert-1'], highlight: ['router'] },
-            select: { highlight: ['expert-1'], dim: ['expert-2'] },
-          }}
-        />
-        <Stack gap={4} justify="center" style={{ flex: 1 }}>
-          <Appear step="score" effect="rise">
-            <Tex display size="lg">{'g = \\mathrm{softmax}(W_g x)'}</Tex>
-          </Appear>
-          <Appear step="select" effect="fade" delay={0.4}>
-            <Callout title="핵심">토큰당 Top-2만 활성화.</Callout>
-          </Appear>
-        </Stack>
-      </Stack>
+      {/* placement: right (default) | bottom | overlay — explanation rail keeps a readable width */}
+      <WalkthroughStage
+        visual={
+          // no width/height → DiagramView fills the cell WalkthroughStage gives it
+          <DiagramView
+            diagram={myDiagram}
+            stepEffects={{
+              // 'x' isn't in any reveal → visible from frame 0 (the anchor)
+              arrive: { reveal: ['router', 'e-x-router'] },
+              score:  { pulse: ['e-router-expert-1'], highlight: ['router'] },
+              select: { highlight: ['expert-1'], dim: ['expert-2'] },
+            }}
+          />
+        }
+        explanation={
+          <Stack gap={4}>
+            <Appear step="score" effect="rise">
+              <Tex display size="lg">{'g = \\mathrm{softmax}(W_g x)'}</Tex>
+            </Appear>
+            <Appear step="select" effect="fade" delay={0.4}>
+              <Callout title="핵심">토큰당 Top-2만 활성화.</Callout>
+            </Appear>
+          </Stack>
+        }
+      />
     </SlideFrame>
   ),
 );
 export default myScene;
 ```
+
+Layout in one breath: `WalkthroughStage` is the default scene skeleton (visual + explanation; rail ≥460 px so Korean never wraps every two words). Full-bleed media → put it alone in the frame and use `placement="overlay"` for a floating callout. Multi-panel text → `Grid`. Charts need numeric sizes — wrap them: `<Fill>{({width, height}) => <BarChart width={width} height={height} … />}</Fill>`.
 
 `stepEffects` semantics: `reveal` is cumulative (ids hidden until revealed — ids never listed in any reveal are visible from frame 0); `highlight`/`pulse`/`dim` apply only while their step is active; `dim: 'others'` dims everything not referenced by the current step. `move: {nodeId: {dx, dy}}` glides nodes by diagram-px offsets — cumulative like `reveal`: the offset eases in over the owning step's animation window and persists afterwards (offsets from several steps sum); attached edges and group boxes follow every frame, and the view is pre-fitted to the union of all morph states so the scale never jumps. `move` takes node ids only. A `reveal` list can be arbitrarily long — the entrance stagger compresses so the last id still finishes by the step's `animEndFrame`. Unknown ids show a red on-canvas warning — fix immediately.
 
@@ -89,10 +100,11 @@ export default myScene;
 ## Kit reference (all from `@/lib/kit`)
 
 - `SlideFrame {title?, footer?, children}` — 1920×1080 slide chrome.
-- `Stack {direction?, gap?, align?, justify?}` · `Grid {columns, gap?}` · `Center` · `WalkthroughStage {visual, explanation, placement right|bottom|overlay}` — layout (gap in 8px units).
+- `Stack {direction?, gap?, align?, justify?}` · `Grid {columns, gap?}` · `Center` · `WalkthroughStage {visual, explanation, placement right|bottom|overlay, gap?}` — layout (gap in 8px units). WalkthroughStage is the default scene skeleton; its explanation rail never squeezes below ~460px.
+- `Fill {children: ({width, height}) => node}` — measures the flex/grid cell it sits in and hands exact pixels to the render prop; how charts and other numeric-size components go into a preset without pixel math. Transform-safe (offsetWidth), deterministic in renders.
 - `Title {sub?}` · `Label {size xs..xl, color?, weight?, mono?}` · `Callout {tone?, title?}` · `ExplainerCard {index?, eyebrow?, title, tone?}` — text; ko + inline English fine.
 - `Tex {children: string, display?, size sm..xl, color?}` — KaTeX.
-- `DiagramView {diagram, stepEffects?, width?, height?}` — step-driven diagram (scenes only).
+- `DiagramView {diagram, stepEffects?, width?, height?}` — step-driven diagram (scenes only). Omit width AND height to fill the parent cell (preferred); explicit pixels remain for hand-tuned scenes.
 - `Block/GroupBox/ArrowEdge` — diagram atoms (rarely used directly; DiagramView/explorer render them).
 - `ThreeScene {camera?: {position, target, fov}, children}` — Remotion-safe 3D stage. Camera moves = frame-derived position.
 - `TensorBox {dims:[a,b,c], dimLabels?, split?: {axis, parts, gap?, colors?}, splitProgress?, partOffsets?, moveProgress?, opacity?, labelOpacity?, maxExtent?, color?}` — pure props; drive with `useStepProgress`; fade `labelOpacity` to 0 once dim labels go stale (e.g. after shards land on GPUs).
@@ -172,5 +184,5 @@ Speaker notes live in a `notes.ts` per week (`Record<string, string>`): keys are
 ## After generating
 
 1. `npm run check` — must be clean.
-2. Point the user at Studio (`npm run studio`, composition `<weekId>--<sceneId>`) for scrubbing, and the explorer (`npm run dev`, `#/<weekId>`).
-3. If the scene has heavy Tex or a new font usage, verify one frame: `npm run still -- <compId> out/check.png --frame=<last>`.
+2. For any new/changed scene render BOTH boundary frames and look at them: `npm run still -- <compId> out/last.png --frame=-1` (negative = from the end; the fully-revealed layout — cramped text and overflow show here) and `npm run still -- <compId> out/first.png --frame=0` (must not be bare — hard rule 6).
+3. Point the user at Studio (`npm run studio`, composition `<weekId>--<sceneId>`) for scrubbing, and the explorer (`npm run dev`, `#/<weekId>`).

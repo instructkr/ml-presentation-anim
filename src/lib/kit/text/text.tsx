@@ -47,6 +47,7 @@ export const Label: React.FC<LabelProps> = ({
       style={{
         fontSize: t.fontSize[size],
         fontWeight: weight,
+        lineHeight: 1.45,
         color: resolveColor(t, color, t.palette.colors.text),
         fontFamily: mono ? t.fonts.mono : t.fonts.sans,
         ...style,
@@ -72,14 +73,15 @@ export const Callout: React.FC<{
         background: t.palette.colors.surface,
         borderLeft: `6px solid ${edge}`,
         borderRadius: t.radius.sm,
-        padding: `${t.space(3)}px ${t.space(4)}px`,
+        padding: `${t.space(4)}px ${t.space(5)}px`,
         fontSize: t.fontSize.sm,
+        lineHeight: 1.6,
         color: t.palette.colors.textSecondary,
         ...style,
       }}
     >
       {title ? (
-        <div style={{ color: t.palette.colors.text, fontWeight: 600, marginBottom: t.space(1) }}>{title}</div>
+        <div style={{ color: t.palette.colors.text, fontWeight: 600, marginBottom: t.space(2) }}>{title}</div>
       ) : null}
       {children}
     </div>
@@ -142,7 +144,7 @@ export const ExplainerCard: React.FC<{
             style={{
               color: t.palette.colors.textSecondary,
               fontSize: t.fontSize.sm,
-              lineHeight: 1.55,
+              lineHeight: 1.6,
               marginTop: t.space(1),
             }}
           >

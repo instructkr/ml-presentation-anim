@@ -24,8 +24,9 @@ export const diagramMorphScene = defineScene(
           width={1180}
           height={840}
           stepEffects={{
+            // 'input' stays out of every reveal — the frame-0 anchor (hard rule 6)
             dense: {
-              reveal: ['input', 'attn', 'ffn', 'output', 'e-input-attn', 'e-attn-ffn', 'e-ffn-output'],
+              reveal: ['attn', 'ffn', 'output', 'e-input-attn', 'e-attn-ffn', 'e-ffn-output'],
             },
             open: {
               move: morphMoves.open,

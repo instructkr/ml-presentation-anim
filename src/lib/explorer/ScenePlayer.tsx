@@ -213,6 +213,12 @@ export const ScenePlayer = forwardRef<ScenePlayerHandle, ScenePlayerProps>(
               clickToPlay={false}
               doubleClickToFullscreen={false}
               spaceKeyToPlayOrPause={false}
+              // Scenes are silent. Without these, the Player syncs playback to an
+              // AudioContext that browsers keep suspended until a user gesture —
+              // play() then reports isPlaying while the frame stays frozen at 0
+              // (a black slide when the deck opens or a detail auto-plays).
+              initiallyMuted
+              numberOfSharedAudioTags={0}
               acknowledgeRemotionLicense
               style={{ width: '100%', height: '100%' }}
             />

@@ -14,9 +14,8 @@ export const titleScene = defineScene(
     <SlideFrame footer="ML Weekly">
       <Center>
         <Stack gap={8} align="center">
-          <Appear step="title" effect="rise">
-            <Title sub="2026-08-05 · ML Weekly">Mixture of Experts 아키텍처 해부</Title>
-          </Appear>
+          {/* the title is the frame-0 anchor (hard rule 6) — only sub-elements animate */}
+          <Title sub="2026-08-05 · ML Weekly">Mixture of Experts 아키텍처 해부</Title>
           <Stack gap={3} align="flex-start">
             {AGENDA.map((item, i) => (
               <Appear key={item} step="agenda" index={i} effect="left">

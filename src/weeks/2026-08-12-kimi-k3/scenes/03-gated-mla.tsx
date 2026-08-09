@@ -27,7 +27,8 @@ export const gatedMlaScene = defineScene(
           width={1776}
           height={280}
           stepEffects={{
-            compress: { reveal: ['x', 'cache', 'e-x-cache'], highlight: ['cache'] },
+            // 'x' stays out of every reveal — the frame-0 anchor (hard rule 6)
+            compress: { reveal: ['cache', 'e-x-cache'], highlight: ['cache'] },
             reconstruct: { reveal: ['up', 'e-cache-up'], highlight: ['up'] },
             attend: { reveal: ['attn', 'e-up-attn'], highlight: ['attn'] },
             nope: { highlight: ['attn'] },

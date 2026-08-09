@@ -9,7 +9,7 @@ Arguments: a topic slug and/or paper name. Today's date forms the id: `YYYY-MM-D
 
 1. Read `CLAUDE.md` (kit/timeline/manifest reference) if not already in context.
 2. Create `src/weeks/<id>/`:
-   - `scenes/00-title.tsx` — defineScene with `title` + `agenda` steps (copy the pattern from an existing week's `00-title.tsx`; agenda items from what the user says about the paper).
+   - `scenes/00-title.tsx` — defineScene with `title` + `agenda` steps (copy the pattern from an existing week's `00-title.tsx`; agenda items from what the user says about the paper). The main `Title` stays static — frame 0 must show it (hard rule 6); only sub-lines and agenda items animate in.
    - `diagrams/` — empty for now unless the user already described the architecture.
    - `notes.ts` — `export const presenterNotes: Record<string, string>` with `'_home'` and `'00-title'` stubs.
    - `manifest.ts` — WeekManifest with an explorable stub: if no architecture known yet, a minimal 2-3 node placeholder root diagram; `slides: [titleScene]`; `scenes: [titleScene]`; `notes: presenterNotes`.

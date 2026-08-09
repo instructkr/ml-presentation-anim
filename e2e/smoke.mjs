@@ -93,12 +93,12 @@ async function shot(page, name) {
     }
     await shot(page, 'explorer.png');
 
-    // c. Click "Multi-Head Attention" node; within 2s DetailView header appears ("Space: 다음 단계")
+    // c. Click "Multi-Head Attention" node; within 2s DetailView header appears ("Space 다음")
     setAction('click Multi-Head Attention node');
     try {
       const mhaNode = page.getByText('Multi-Head Attention', { exact: false }).first();
       await mhaNode.click();
-      await page.waitForSelector('text=Space: 다음 단계', { timeout: 4000 });
+      await page.waitForSelector('text=Space 다음', { timeout: 4000 });
       record('c. Click MHA node opens DetailView within 2s (hint text present)', true);
     } catch (e) {
       record('c. Click MHA node opens DetailView within 2s (hint text present)', false, e.message);
@@ -131,7 +131,7 @@ async function shot(page, name) {
     try {
       await page.keyboard.press('Escape');
       await page.waitForTimeout(700); // zoom-out animation
-      const hintGone = !(await page.getByText('Space: 다음 단계').first().isVisible().catch(() => false));
+      const hintGone = !(await page.getByText('Space 다음').first().isVisible().catch(() => false));
       const canvasVisible = await page.locator('.react-flow').first().isVisible().catch(() => false);
       record('e. Escape closes DetailView; canvas visible again', hintGone && canvasVisible,
         `hintGone=${hintGone}, canvasVisible=${canvasVisible}`);
@@ -144,7 +144,7 @@ async function shot(page, name) {
     setAction("press 'n' for guided path");
     try {
       await page.keyboard.press('n');
-      await page.waitForSelector('text=Space: 다음 단계', { timeout: 3000 });
+      await page.waitForSelector('text=Space 다음', { timeout: 3000 });
       record("f. Press 'n' opens a DetailView within 3s (guided path)", true);
       await page.keyboard.press('Escape');
       await page.waitForTimeout(700);
@@ -162,7 +162,7 @@ async function shot(page, name) {
       await page.waitForSelector('.react-flow', { state: 'visible', timeout: 5000 });
       const routerNode = page.getByText('Router', { exact: false }).first();
       await routerNode.click();
-      await page.waitForSelector('text=Space: 다음 단계', { timeout: 4000 });
+      await page.waitForSelector('text=Space 다음', { timeout: 4000 });
       record('g. Click Router node opens DetailView', true);
     } catch (e) {
       record('g. Click Router node opens DetailView', false, e.message);
@@ -182,7 +182,7 @@ async function shot(page, name) {
       await page.waitForSelector('.react-flow', { state: 'visible', timeout: 5000 });
       const moeLabel = page.getByText('MoE Layer', { exact: false }).first();
       await moeLabel.click({ timeout: 3000 });
-      await page.waitForSelector('text=Space: 다음 단계', { timeout: 3000 });
+      await page.waitForSelector('text=Space 다음', { timeout: 3000 });
       moeOpened = true;
     } catch (e) {
       // fallback: press 'n' three times via guided path
@@ -194,7 +194,7 @@ async function shot(page, name) {
           await page.keyboard.press('n');
           await page.waitForTimeout(1200);
         }
-        await page.waitForSelector('text=Space: 다음 단계', { timeout: 3000 });
+        await page.waitForSelector('text=Space 다음', { timeout: 3000 });
         moeOpened = true;
       } catch (e2) {
         record('h. Open MoE Layer group (direct click or guided-path fallback)', false,
@@ -269,7 +269,7 @@ async function shot(page, name) {
       // open the attention detail in the deck; notes must switch to the module note
       await page.waitForSelector('.react-flow', { state: 'visible', timeout: 5000 });
       await page.getByText('Multi-Head Attention', { exact: false }).first().click();
-      await page.waitForSelector('text=Space: 다음 단계', { timeout: 4000 });
+      await page.waitForSelector('text=Space 다음', { timeout: 4000 });
       // already visited in earlier checks, so it reopens fully revealed at the LAST
       // step — restart so Space walks qkv → scores → softmax
       await page.keyboard.press('r');

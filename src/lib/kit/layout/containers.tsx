@@ -79,8 +79,10 @@ export const WalkthroughStage: React.FC<{
   visual: React.ReactNode;
   explanation: React.ReactNode;
   placement?: 'right' | 'bottom' | 'overlay';
+  /** gap between visual and explanation, in 8px units */
+  gap?: number;
   style?: React.CSSProperties;
-}> = ({ visual, explanation, placement = 'right', style }) => {
+}> = ({ visual, explanation, placement = 'right', gap = 6, style }) => {
   const t = useTheme();
   if (placement === 'overlay') {
     return (
@@ -92,8 +94,9 @@ export const WalkthroughStage: React.FC<{
             right: t.space(4),
             bottom: t.space(4),
             width: '38%',
+            minWidth: 460,
             maxHeight: '74%',
-            padding: t.space(4),
+            padding: `${t.space(4)}px ${t.space(5)}px`,
             borderRadius: t.radius.md,
             border: `1px solid ${t.palette.colors.border}`,
             background: `${t.palette.colors.surface}ee`,
@@ -109,9 +112,10 @@ export const WalkthroughStage: React.FC<{
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: bottom ? '1fr' : 'minmax(0, 1.6fr) minmax(390px, 0.72fr)',
+        // the explanation rail never squeezes below a comfortable Korean line
+        gridTemplateColumns: bottom ? '1fr' : 'minmax(0, 1.55fr) minmax(460px, 0.78fr)',
         gridTemplateRows: bottom ? 'minmax(0, 1fr) auto' : '1fr',
-        gap: t.space(5),
+        gap: t.space(gap),
         width: '100%',
         height: '100%',
         minHeight: 0,

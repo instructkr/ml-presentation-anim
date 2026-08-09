@@ -29,8 +29,9 @@ export const kdaScene = defineScene(
           width={1776}
           height={380}
           stepEffects={{
+            // 'x' stays out of every reveal — the frame-0 anchor (hard rule 6)
             branch: {
-              reveal: ['x', 'feat', 'decay', 'beta', 'e-x-feat', 'e-x-decay', 'e-x-beta'],
+              reveal: ['feat', 'decay', 'beta', 'e-x-feat', 'e-x-decay', 'e-x-beta'],
               highlight: ['feat'],
             },
             decay: { highlight: ['decay'] },

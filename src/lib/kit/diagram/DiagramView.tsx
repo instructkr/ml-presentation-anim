@@ -11,6 +11,7 @@ import {
 } from '../../diagram/layout';
 import { useSceneMeta } from '../../timeline/context';
 import { useTheme } from '../../theme';
+import { Fill } from '../layout/Fill';
 import { ArrowEdge } from './ArrowEdge';
 import { Block } from './Block';
 import { GroupBox } from './GroupBox';
@@ -57,6 +58,7 @@ export interface DiagramViewProps {
   diagram: Diagram;
   /** step id → effects. Ids not listed in any `reveal` are visible from the start. */
   stepEffects?: Record<string, StepEffect>;
+  /** omit BOTH width and height to fill the parent cell (measured via Fill) */
   width?: number;
   height?: number;
   maxScale?: number;
@@ -78,13 +80,24 @@ const rectOf = (n: LaidOutNode, o: NodeOffset = ZERO): Rect => ({
 
 /**
  * Frame-driven renderer for a Diagram. Must render inside a defineScene()
- * component (it reads the scene's step timing).
+ * component (it reads the scene's step timing). Prefer the size-less form —
+ * `<DiagramView diagram={d} />` inside a flex/grid cell fills whatever space
+ * the layout gave it, so scenes never hand-compute pixel budgets.
  */
-export const DiagramView: React.FC<DiagramViewProps> = ({
+export const DiagramView: React.FC<DiagramViewProps> = ({ width, height, ...rest }) => {
+  if (width === undefined && height === undefined) {
+    return <Fill>{(size) => <SizedDiagramView {...rest} width={size.width} height={size.height} />}</Fill>;
+  }
+  return <SizedDiagramView {...rest} width={width ?? 1760} height={height ?? 800} />;
+};
+
+const SizedDiagramView: React.FC<
+  Omit<DiagramViewProps, 'width' | 'height'> & { width: number; height: number }
+> = ({
   diagram,
   stepEffects,
-  width = 1760,
-  height = 800,
+  width,
+  height,
   maxScale = 1.4,
 }) => {
   const t = useTheme();

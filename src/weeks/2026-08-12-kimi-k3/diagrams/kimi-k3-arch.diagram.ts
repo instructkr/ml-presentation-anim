@@ -52,16 +52,16 @@ const res = (from: string, to: string, opts: EdgeOpts = {}) => e(from, to, { col
 /** backbone spine and the α / w column beside it */
 const SPINE = 1250;
 const ALPHA_X = 1452;
-/** module centres, bottom to top */
+/** module centres, bottom to top — spaced so every module↔⊕ edge gap is 26px */
 const Y = {
   kda: 800,
-  add1: 718,
+  add1: 726,
   smoeLo: 638,
-  add2: 558,
-  gmla: 478,
-  add3: 396,
-  smoeHi: 316,
-  add4: 234,
+  add2: 550,
+  gmla: 476,
+  add3: 402,
+  smoeHi: 314,
+  add4: 226,
   out: 142,
 };
 /** where the bottom of the block fades into the layers below */
@@ -89,6 +89,8 @@ const ATTENDERS = [
 ];
 
 const MOD = { w: 270, h: 52 };
+/** "Stable LatentMoE" wraps to two lines at this width, so its box is taller */
+const SMOE = { w: 270, h: 80 };
 const PLUS = 44;
 const ALPHA = 46;
 
@@ -132,9 +134,9 @@ const backboneNodes = [
   ...alphaNode('smoe-hi', Y.smoeHi),
 
   { id: 'kda', label: 'KDA', title: 'Kimi Delta Attention', variant: 'attention', ...at(SPINE, Y.kda, MOD.w, MOD.h) },
-  { id: 'smoe-lo', label: 'Stable LatentMoE', variant: 'ffn', ...at(SPINE, Y.smoeLo, MOD.w, MOD.h) },
+  { id: 'smoe-lo', label: 'Stable LatentMoE', variant: 'ffn', ...at(SPINE, Y.smoeLo, SMOE.w, SMOE.h) },
   { id: 'gmla', label: 'Gated MLA', variant: 'proj', ...at(SPINE, Y.gmla, MOD.w, MOD.h) },
-  { id: 'smoe-hi', label: 'Stable LatentMoE', variant: 'ffn', ...at(SPINE, Y.smoeHi, MOD.w, MOD.h) },
+  { id: 'smoe-hi', label: 'Stable LatentMoE', variant: 'ffn', ...at(SPINE, Y.smoeHi, SMOE.w, SMOE.h) },
 
   plus('add1', Y.add1),
   plus('add2', Y.add2),

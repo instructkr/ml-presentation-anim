@@ -19,12 +19,11 @@ export const titleScene = defineScene(
     <SlideFrame footer="ML Weekly">
       <Center>
         <Stack gap={8} align="center">
-          <Appear step="title" effect="rise">
-            <Title sub="2026-08-12 · ML Weekly · Kimi K3 Technical Report">
-              Kimi K3 아키텍처 해부
-            </Title>
-          </Appear>
-          <Appear step="title" effect="fade" delay={0.5}>
+          {/* the title is the frame-0 anchor (hard rule 6) — only sub-elements animate */}
+          <Title sub="2026-08-12 · ML Weekly · Kimi K3 Technical Report">
+            Kimi K3 아키텍처 해부
+          </Title>
+          <Appear step="title" effect="fade" delay={0.4}>
             <Label size="sm" color="muted">
               2.8T 파라미터 · 토큰당 104B 활성 · 1M 컨텍스트
             </Label>
