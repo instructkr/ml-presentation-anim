@@ -7,11 +7,13 @@ import { defineDiagram } from '@/lib/diagram';
  * the sequence and is paged per token, while KDA's recurrent state is a single
  * fixed-size blob per request. A cached prefix is reusable only if BOTH can be
  * restored at the same boundary, so K3 packs them into one paged pool and then
- * decouples the two granularities that block-hash caching normally fuses:
+ * splits the three jobs block-hash caching normally fuses into one unit:
  *
- *   · physical block (6144 tokens) stays the allocation unit
- *   · prefix hashing runs on 512-token hash blocks inside MLA pages
- *   · KDA checkpoints are written only at a sparse subset of hash endpoints
+ *   · allocation stays the 6144-token physical block
+ *   · hashing runs on 512-token hash blocks inside MLA pages
+ *   · KDA checkpoints land on only some of those hash endpoints (turn
+ *     boundaries), because a checkpoint is a large blob and a lookup can only
+ *     ever reference a hash endpoint anyway
  *
  * The figure below is the m = 6144 / 512 = 12 case of the paper's Fig. 12:
  * five cached MLA hash blocks, checkpoints at 1024 and 2560, and a hit at
@@ -30,8 +32,8 @@ const CELL_W = 92;
 const CELL_H = 52;
 const PITCH = 98;
 const FIRST_CX = 190;
-const CELL_CY = 300;
-const MARK_CY = 374;
+const CELL_CY = 308;
+const MARK_CY = 378;
 /** hash blocks [0, 5) carry cached MLA KV; the rest of the page is still empty */
 const CACHED = 5;
 /** hash endpoints that hold a persisted KDA checkpoint (turn boundaries) */
@@ -83,7 +85,7 @@ export const kdaPrefixCacheDetail = defineDiagram({
     {
       id: 'phys',
       label: '물리 캐시 블록 6144 토큰 = 해시 블록 512 × 12',
-      rect: { x: 138, y: 258, w: 1180, h: 84 },
+      rect: { x: 138, y: 248, w: 1180, h: 104 },
     },
   ],
   nodes: [
@@ -99,21 +101,35 @@ export const kdaPrefixCacheDetail = defineDiagram({
       label: 'alloc · refcount · evict 구현 하나',
       variant: 'annotation',
       parent: 'pool',
-      ...at(1215, 120, 290, 56),
+      ...at(1235, 120, 250, 56),
     },
 
     // ── Fig. 12 ─────────────────────────────────────────────────────────────
-    { id: 'lbl-mla', kind: 'annotation', label: 'MLA KV', variant: 'annotation', ...at(92, CELL_CY, 108, 40) },
-    { id: 'lbl-ckpt', kind: 'annotation', label: 'KDA ckpt', variant: 'annotation', ...at(92, MARK_CY, 108, 40) },
+    { id: 'lbl-mla', kind: 'annotation', label: 'MLA KV', variant: 'annotation', ...at(72, CELL_CY, 110, 44) },
+    {
+      id: 'lbl-ckpt',
+      kind: 'annotation',
+      label: 'KDA 체크포인트',
+      variant: 'annotation',
+      ...at(72, MARK_CY, 110, 60),
+    },
     ...hashCells,
     ...checkpointMarks,
     {
       id: 'coarse',
       kind: 'annotation',
-      label: '기존: 해시 단위 = 물리 블록 → 짧은 요청은 재사용 불가',
+      label: '기존 방식: 해시 단위 = 물리 블록 하나 → 6144개를 못 채운 요청은 등록조차 안 된다',
       variant: 'annotation',
       muted: true,
-      ...at(560, 214, 760, 34),
+      ...at(600, 210, 900, 46),
+    },
+    {
+      id: 'ckpt-note',
+      kind: 'annotation',
+      label:
+        '체크포인트는 크다 → 512 경계마다 다 남기지 못한다. 일부에만, 대개 대화 턴 경계. 그리고 반드시 해시 경계 위에.',
+      variant: 'annotation',
+      ...at(1120, 448, 480, 96),
     },
     {
       id: 'hit',
@@ -121,35 +137,35 @@ export const kdaPrefixCacheDetail = defineDiagram({
       label: '두 단계를 모두 만족하는 가장 긴 경계',
       variant: 'route',
       tex: 'B = 5 \\times 512 = 2560',
-      ...at(boundaryCx(HIT_INDEX) + 60, 448, 460, 74),
+      ...at(600, 448, 460, 74),
     },
 
     // ── 2단계 조회 ───────────────────────────────────────────────────────────
     {
       id: 'stage-mla',
-      label: 'MLA 단계: 물리 블록을 chained hash로 맞추고, 첫 미스 블록 안에서는 해시 끝점으로 폴백',
+      label: '1단계 MLA: 물리 블록을 체인 해시로 맞춰보고, 처음 어긋난 블록 안에서는 512 경계로 내려가 다시 맞춘다',
       variant: 'attention',
-      ...at(360, 566, 560, 92),
+      ...at(360, 552, 560, 92),
     },
     {
       id: 'stage-kda',
-      label: 'KDA 단계: 모든 KDA 캐시 그룹에 그 경계의 체크포인트가 존재해야 함',
+      label: '2단계 KDA: 그 경계의 체크포인트가 모든 KDA 캐시 그룹에 다 있어야 통과',
       variant: 'ffn',
-      ...at(1000, 566, 560, 92),
+      ...at(1000, 552, 560, 92),
     },
     {
       id: 'pin',
       kind: 'op',
       label: '히트 블록을 전 그룹에서 pin → private 블록으로 GPU copy',
       variant: 'norm',
-      ...at(360, 690, 560, 74),
+      ...at(360, 664, 560, 74),
     },
     {
       id: 'resume',
       kind: 'io',
       label: 'B부터 prefill 재개 · 구간 [0, B) 재계산 없음',
       variant: 'io',
-      ...at(1000, 690, 560, 74),
+      ...at(1000, 664, 560, 74),
     },
   ],
   edges: [
@@ -167,8 +183,8 @@ export const kdaPrefixCacheDetail = defineDiagram({
       style: 'dashed',
       arrow: false,
       waypoints: [
-        { x: boundaryCx(HIT_INDEX) + 60, y: 512 },
-        { x: 360, y: 512 },
+        { x: 600, y: 500 },
+        { x: 360, y: 500 },
       ],
     },
     {
@@ -178,8 +194,8 @@ export const kdaPrefixCacheDetail = defineDiagram({
       style: 'dashed',
       arrow: false,
       waypoints: [
-        { x: boundaryCx(HIT_INDEX) + 60, y: 512 },
-        { x: 1000, y: 512 },
+        { x: 600, y: 500 },
+        { x: 1000, y: 500 },
       ],
     },
     { id: 'e-stage-mla-pin', from: 'stage-mla', to: 'pin' },
@@ -196,12 +212,20 @@ export const kdaPrefixCacheDetail = defineDiagram({
 export const cacheIds = {
   /** the one line that explains what the pool buys */
   poolNote: ['pool-note'],
-  /** the physical block and its twelve hash blocks */
-  strip: ['phys', 'lbl-mla', 'coarse', ...hashCells.map((c) => c.id)],
+  /** the 6144-token physical block, still undivided */
+  physBlock: ['phys'],
+  /** what block-hash caching costs a hybrid model at that size */
+  coarse: ['coarse'],
+  /** the same block, now subdivided into twelve 512-token hash blocks */
+  hashCells: ['lbl-mla', ...hashCells.map((c) => c.id)],
   /** hash blocks that already hold cached MLA KV */
   cachedCells: hashCells.slice(0, CACHED).map((c) => c.id),
-  /** checkpoint markers, minus the one the lookup lands on */
-  marks: ['lbl-ckpt', ...checkpointMarks.filter((_, i) => i !== HIT_INDEX).map((m) => m.id)],
+  /** checkpoint markers (minus the one the lookup lands on) and what they mean */
+  marks: [
+    'lbl-ckpt',
+    'ckpt-note',
+    ...checkpointMarks.filter((_, i) => i !== HIT_INDEX).map((m) => m.id),
+  ],
   /** the hit itself */
   hit: [`ck-${HIT_INDEX}`, 'e-ck-4-hit', 'hit'],
   /** the two lookup stages */

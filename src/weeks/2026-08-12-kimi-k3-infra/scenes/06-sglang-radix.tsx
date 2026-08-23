@@ -22,7 +22,7 @@ dec_lock_ref(node); evict(n)
  */
 export const sglangRadixScene = defineScene(
   {
-    id: '05-sglang-radix',
+    id: '06-sglang-radix',
     title: 'SGLang Radix Cache',
     steps: [
       step('tree', 2.4),
@@ -83,14 +83,14 @@ export const sglangRadixScene = defineScene(
             </Appear>
             <Appear step="evict" effect="rise">
               <Callout title="회수는 leaf부터, 참조 카운트가 방패">
-                축출 힙에는 <b>lock_ref == 0인 leaf</b>만 들어간다. 하나를 비우면 빈 부모가 다시 힙에
-                올라간다. HiCache는 버리는 대신 host 계층으로 내린다.
+                축출 힙에는 <b>lock_ref == 0인 leaf</b>만 들어간다. HiCache는 버리는 대신 host 계층으로
+                내린다.
               </Callout>
             </Appear>
             <Appear step="contrast" effect="rise">
               <Callout tone="warn" title="K3가 이 설계를 그대로 못 쓰는 이유">
-                트리는 KV 하나만 복원하면 되지만, 하이브리드는 그 경계에 <b>KDA 상태</b>도 있어야 한다.
-                고정 크기라 페이징이 안 돼 체크포인트가 희소해진다.
+                트리가 자유로운 건 되살릴 게 KV뿐이고 KV가 토큰 단위로 쪼개져 있어서다. 하이브리드는
+                경계마다 <b>KDA 상태</b>도 필요한데, 고정 크기라 쪼갤 수 없어 드문 지점에만 떠 둔다.
               </Callout>
             </Appear>
           </Stack>
