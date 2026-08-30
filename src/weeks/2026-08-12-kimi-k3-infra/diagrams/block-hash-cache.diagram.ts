@@ -106,7 +106,7 @@ export const blockHashCacheDetail = defineDiagram({
     {
       id: 'index',
       kind: 'io',
-      label: '프리픽스 캐시 인덱스 — 해시 하나가 KV 블록들의 위치를 가리킨다',
+      label: '프리픽스 캐시 인덱스. 해시 하나가 KV 블록의 위치를 가리킨다',
       variant: 'io',
       ...at(850, 352, 700, 80),
     },
@@ -114,7 +114,7 @@ export const blockHashCacheDetail = defineDiagram({
     // ── 요청 B의 조회 ───────────────────────────────────────────────────────
     {
       id: 'reqb',
-      label: '요청 B — 앞 2200 토큰이 A와 똑같다',
+      label: '요청 B. 앞 2200 토큰이 A와 똑같다',
       variant: 'embed',
       ...at(480, ROW_CY, 420, 84),
     },
@@ -142,7 +142,7 @@ export const blockHashCacheDetail = defineDiagram({
     {
       id: 'rule',
       kind: 'annotation',
-      label: '가득 찬 블록만 해싱된다 → 재사용은 블록 크기의 배수 지점에서만 일어난다',
+      label: '가득 찬 블록만 해싱되므로, 재사용은 블록 크기의 배수 지점에서만 끊긴다',
       variant: 'annotation',
       ...at(740, 578, 780, 62),
     },

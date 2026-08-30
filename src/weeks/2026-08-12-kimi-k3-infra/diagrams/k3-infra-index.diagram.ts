@@ -4,11 +4,17 @@ import { defineDiagram } from '@/lib/diagram';
  * Home screen of the K3 심화 deck — an index, not an architecture.
  *
  * The main K3 week reconstructs Fig. 2 and stops where the paper's body stops.
- * Everything here lives in the parts that figure has no room for: the appendix
- * derivations behind Quantile Balancing, the EP scheme that makes 896 experts
- * trainable, and the serving-side cache that makes a hybrid model's prefixes
- * reusable. Each block opens exactly one scene, so any of the five can be
- * presented on its own.
+ * Everything here lives in the parts that figure has no room for: the routing
+ * story from the problem statement through both appendices, the EP scheme that
+ * makes 896 experts trainable, and the serving-side cache that makes a hybrid
+ * model's prefixes reusable.
+ *
+ * The routing block is six scenes rather than two on purpose. §2.3.3 and
+ * Appendix C are both written from the middle of an argument — they assume the
+ * load of an expert, the additive bias, the fixed-step rule and the word
+ * "quantile" are all already understood — so this row starts one step before
+ * the paper does, defines the vocabulary, and then does the derivation one
+ * move at a time instead of naming it.
  */
 
 /** place a node by its centre */
@@ -23,56 +29,101 @@ export const k3InfraIndex = defineDiagram({
   groups: [
     {
       id: 'routing',
-      label: '라우팅 · 부하 균형   §2.3.3 · 부록 C · 부록 D',
-      rect: { x: 60, y: 90, w: 700, h: 300 },
+      label: '라우팅과 부하 균형   §2.3.3 · 부록 C · 부록 D',
+      rect: { x: 60, y: 90, w: 1440, h: 440 },
     },
     {
       id: 'training',
       label: '학습 인프라   §5.2.1 · 부록 E',
-      rect: { x: 800, y: 90, w: 580, h: 300 },
+      rect: { x: 60, y: 580, w: 620, h: 240 },
     },
     {
       id: 'serving',
-      label: '서빙 인프라 — 프리픽스 캐시   §5.4.1',
-      rect: { x: 60, y: 440, w: 1320, h: 300 },
+      label: '서빙 인프라 · 프리픽스 캐시   §5.4.1',
+      rect: { x: 720, y: 580, w: 780, h: 240 },
     },
   ],
   nodes: [
     {
       id: 'title',
       kind: 'annotation',
-      label: 'Kimi K3 — 본편에서 접고 지나간 여섯 편',
+      label: 'Kimi K3 — 본편에서 접고 지나간 열한 편',
       variant: 'annotation',
-      ...at(720, 42, 900, 48),
+      ...at(780, 42, 900, 48),
     },
 
     {
-      id: 'qb-dual',
-      label: '왜 분위수인가',
-      title: 'QB 유도 — 균형 배정의 쌍대',
+      id: 'qb-problem',
+      label: '① 부하가 쏠린다는 문제',
+      title: '① 문제 — 부하와 bias',
+      variant: 'route',
+      tex: '\\ell_j \\ne q',
+      parent: 'routing',
+      ...at(313, 225, 430, 130),
+    },
+    {
+      id: 'qb-quantile',
+      label: '② 분위수란 무엇인가',
+      title: '② 도구 — 분위수의 정의',
       variant: 'route',
       tex: '\\mathrm{quantile}_{1-k/n}',
       parent: 'routing',
-      ...at(215, 250, 280, 150),
+      ...at(780, 225, 430, 130),
+    },
+    {
+      id: 'qb-dual',
+      label: '③ 제약에 값을 매긴다',
+      title: '③ 유도 — 임계 규칙이 나온다',
+      variant: 'route',
+      tex: 's_{ij} - \\alpha_i - \\beta_j > 0',
+      parent: 'routing',
+      ...at(1248, 225, 430, 130),
+    },
+    {
+      id: 'qb-minimise',
+      label: '④ 분위수가 나오는 계산',
+      title: '④ 유도 — 최소점이 k+1번째',
+      variant: 'route',
+      tex: 'f\'(\\alpha) = k - \\#\\{ m > \\alpha \\}',
+      parent: 'routing',
+      ...at(313, 395, 430, 130),
+    },
+    {
+      id: 'qb-jump',
+      label: '⑤ 고정 스텝과의 관계',
+      title: '⑤ 정리 — SignSGD와 배포',
+      variant: 'route',
+      tex: 'b = -\\beta',
+      parent: 'routing',
+      ...at(780, 395, 430, 130),
     },
     {
       id: 'qb-histogram',
-      label: '히스토그램 추정',
-      title: 'QB 히스토그램 — 전 배치 분위수',
+      label: '⑥ 실제로 계산하는 법',
+      title: '⑥ 구현 — 부록 D 히스토그램',
       variant: 'route',
       tex: 'H \\in \\mathbb{N}^{n \\times B}',
       parent: 'routing',
-      ...at(605, 250, 280, 150),
+      ...at(1248, 395, 430, 130),
     },
 
     {
-      id: 'moon-ep',
-      label: 'MoonEP — 랭크마다 정확히 S×K',
-      title: 'MoonEP — 완벽 균형 EP',
-      variant: 'expertRouted',
-      tex: 'M(I) \\le E/R',
+      id: 'ep-dispatch',
+      label: '⑦ 왜 복사가 균형이 되나',
+      title: '⑦ 토큰은 어디서 계산되나',
+      variant: 'route',
+      tex: '90 \\rightarrow 50{+}20{+}20',
       parent: 'training',
-      ...at(1090, 250, 480, 150),
+      ...at(203, 715, 280, 130),
+    },
+    {
+      id: 'moon-ep',
+      label: '⑧ MoonEP — 비워 둔 자리',
+      title: 'MoonEP — 비워 둔 자리',
+      variant: 'expertRouted',
+      tex: 'E/R\\ \\text{slots}',
+      parent: 'training',
+      ...at(537, 715, 280, 130),
     },
 
     {
@@ -82,16 +133,16 @@ export const k3InfraIndex = defineDiagram({
       variant: 'embed',
       tex: '\\text{hash} = \\text{block}',
       parent: 'serving',
-      ...at(280, 600, 360, 150),
+      ...at(858, 715, 230, 130),
     },
     {
       id: 'prefix-cache',
-      label: 'K3 — 세 단위를 분리',
+      label: 'K3 — 세 단위를 분리한다',
       title: 'KDA Prefix Cache — Fig. 12',
       variant: 'attention',
       tex: '512 \\;\\ne\\; 6144',
       parent: 'serving',
-      ...at(720, 600, 360, 150),
+      ...at(1110, 715, 230, 130),
     },
     {
       id: 'sglang-radix',
@@ -100,11 +151,15 @@ export const k3InfraIndex = defineDiagram({
       variant: 'ffn',
       tex: '\\mathtt{match\\_prefix}',
       parent: 'serving',
-      ...at(1160, 600, 360, 150),
+      ...at(1363, 715, 230, 130),
     },
   ],
   edges: [
-    { id: 'e-qb-dual-qb-histogram', from: 'qb-dual', to: 'qb-histogram', label: '그다음', style: 'dashed' },
+    { id: 'e-qb-problem-qb-quantile', from: 'qb-problem', to: 'qb-quantile', style: 'dashed' },
+    { id: 'e-qb-quantile-qb-dual', from: 'qb-quantile', to: 'qb-dual', style: 'dashed' },
+    { id: 'e-qb-minimise-qb-jump', from: 'qb-minimise', to: 'qb-jump', style: 'dashed' },
+    { id: 'e-qb-jump-qb-histogram', from: 'qb-jump', to: 'qb-histogram', style: 'dashed' },
+    { id: 'e-ep-dispatch-moon-ep', from: 'ep-dispatch', to: 'moon-ep', style: 'dashed' },
     { id: 'e-block-hash-prefix-cache', from: 'block-hash', to: 'prefix-cache', style: 'dashed' },
     { id: 'e-prefix-cache-sglang-radix', from: 'prefix-cache', to: 'sglang-radix', label: '비교', style: 'dashed' },
   ],

@@ -14,7 +14,7 @@ import { cacheIds, kdaPrefixCacheDetail } from '../diagrams/kda-prefix-cache.dia
  */
 export const kdaPrefixCacheScene = defineScene(
   {
-    id: '05-kda-prefix-cache',
+    id: '10-kda-prefix-cache',
     title: 'KDA Prefix Cache',
     steps: [
       step('pool', 2.4),
@@ -84,9 +84,10 @@ export const kdaPrefixCacheScene = defineScene(
           <Grid columns={3} gap={4}>
             <Appear step="forced" effect="rise">
               <Callout tone="warn" title="왜 하이브리드에서는 블록이 커지나">
-                KDA 레이어는 토큰마다 KV를 남기지 않는다. 시퀀스당 고정 크기 상태 <b>한 덩어리</b>뿐이라,
-                경계 B에서 이어받으려면 그 시점 상태를 통째로 떠 둬야 한다. 스냅숏이 커서 자주 못 뜬다.
-                그런데 해시가 저장 블록에 묶여 있어, 그 성긴 간격이 곧 모든 레이어의 블록 크기가 된다.
+                KDA 레이어는 토큰마다 KV를 남기지 않는다. 시퀀스당 고정 크기 상태가 <b>한 덩어리</b> 있을
+                뿐이라, 경계 B에서 이어받으려면 그 시점의 상태를 통째로 떠 둬야 한다. 스냅숏이 크니
+                자주 뜰 수 없고, 그래서 이어받을 수 있는 지점이 드문드문해진다. 여기에 더해 해시는
+                저장 블록 하나에 묶여 있다. 그 드문 간격이 그대로 모든 레이어의 블록 크기가 된다.
               </Callout>
             </Appear>
             <Appear step="cost" effect="rise">

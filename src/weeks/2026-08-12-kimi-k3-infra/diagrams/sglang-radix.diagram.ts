@@ -27,7 +27,7 @@ export const sglangRadixDetail = defineDiagram({
   groups: [
     {
       id: 'tree',
-      label: 'RadixCache — 토큰열 위의 하나의 트리',
+      label: '토큰 열 위에 세운 트리 하나 (RadixCache)',
       rect: { x: 330, y: 24, w: 800, h: 500 },
     },
   ],
@@ -94,21 +94,21 @@ export const sglangRadixDetail = defineDiagram({
     {
       id: 'op-match',
       kind: 'annotation',
-      label: 'match_prefix — 트리를 내려가며 공통 접두 길이 계산',
+      label: 'match_prefix: 트리를 내려가며 공통 접두의 길이를 잰다',
       variant: 'annotation',
       ...at(158, 170, 300, 150),
     },
     {
       id: 'op-lock',
       kind: 'annotation',
-      label: 'inc_lock_ref — 히트 경로를 protected_size_ 로 (축출 불가)',
+      label: 'inc_lock_ref: 히트한 경로를 protected_size_로 옮겨 축출 대상에서 뺀다',
       variant: 'annotation',
       ...at(158, 350, 300, 150),
     },
     {
       id: 'op-page',
       kind: 'annotation',
-      label: 'page_aligned — 키를 page_size 배수로 절단',
+      label: 'page_aligned: 키를 page_size의 배수로 자른다',
       variant: 'annotation',
       ...at(158, 530, 300, 150),
     },
@@ -117,21 +117,21 @@ export const sglangRadixDetail = defineDiagram({
     {
       id: 'op-split',
       kind: 'annotation',
-      label: '_split_node — 일치가 끝난 자리에서 노드를 쪼갠다',
+      label: '_split_node: 일치가 끝난 자리에서 노드를 쪼갠다',
       variant: 'annotation',
       ...at(1280, 170, 300, 150),
     },
     {
       id: 'op-insert',
       kind: 'annotation',
-      label: 'insert — 이미 캐시된 접두 길이를 돌려주고 중복분 해제',
+      label: 'insert: 이미 캐시된 접두의 길이를 돌려주고 겹치는 몫은 해제한다',
       variant: 'annotation',
       ...at(1280, 350, 300, 150),
     },
     {
       id: 'op-evict',
       kind: 'annotation',
-      label: 'evict — lock_ref == 0 인 leaf 부터 오래된 순으로 회수',
+      label: 'evict: lock_ref가 0인 leaf부터 오래된 순으로 회수한다',
       variant: 'annotation',
       ...at(1280, 530, 300, 150),
     },
@@ -148,7 +148,7 @@ export const sglangRadixDetail = defineDiagram({
     {
       id: 'hicache',
       kind: 'io',
-      label: 'HiCache — host_value 로 CPU·디스크 계층에 내려둔다',
+      label: 'HiCache를 켜면 버리는 대신 host_value로 CPU와 디스크 계층에 내려둔다',
       variant: 'ffn',
       ...at(1080, 664, 480, 90),
     },

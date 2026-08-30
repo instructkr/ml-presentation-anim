@@ -16,9 +16,12 @@ import { qbHistogramDetail } from '../diagrams/qb-histogram.diagram';
 
 /**
  * Appendix D. One expert's histogram of the *required bias* r = α − s, binned
- * over the range the current bias itself bounds. The target rank q = mk/n is
- * read off the cumulative counts, so the whole global-batch quantile costs one
- * integer all-reduce instead of a gather of O(mn) margins.
+ * over a range the current bias already bounds. The target rank q = mk/n is
+ * read off the cumulative counts from the bottom, which is where the sign flip
+ * lands: b = −β, so "the top q margins" becomes "the bottom q required biases".
+ *
+ * The whole global-batch quantile therefore costs one integer all-reduce per
+ * layer per step instead of a gather of O(mn) floats per micro-batch.
  */
 const BINS = [
   { label: '−1.0', value: 2 },
@@ -33,16 +36,16 @@ const BINS = [
   { label: '0.8', value: 9 },
   { label: '1.0', value: 3 },
 ];
-/** the first bin whose cumulative count reaches ⌈q⌉ — where b̂ⱼ is interpolated */
+/** cumulative counts from the bottom first reach q ≈ 180k inside this bin */
 const CUT_BIN = 5;
 
 export const qbHistogramScene = defineScene(
   {
-    id: '02-qb-histogram',
-    title: '히스토그램 추정',
+    id: '06-qb-histogram',
+    title: '실제로는 어떻게 계산하나',
     steps: [
-      step('need', 2.2),
-      step('required', 2.6),
+      step('problem', 2.6),
+      step('required', 2.8),
       step('local', 2.8),
       step('allreduce', 2.6),
       step('read', 3.0),
@@ -53,7 +56,10 @@ export const qbHistogramScene = defineScene(
     const localP = useStepProgress('local');
     const readP = useStepProgress('read');
     return (
-      <SlideFrame title="전 배치 분위수를 히스토그램으로 — all-reduce 한 번" footer="ML Weekly · Kimi K3 § D">
+      <SlideFrame
+        title="구현 — 값을 모으지 않고 개수만 세서 분위수를 얻는다"
+        footer="ML Weekly · Kimi K3 부록 D"
+      >
         <WalkthroughStage
           placement="bottom"
           gap={4}
@@ -63,10 +69,11 @@ export const qbHistogramScene = defineScene(
                 <DiagramView
                   diagram={qbHistogramDetail}
                   stepEffects={{
-                    // 'batch'는 어떤 reveal에도 없음 — frame-0 앵커 (hard rule 6)
-                    need: {
-                      highlight: ['batch'],
-                      camera: { focus: ['batch'], padding: 120 },
+                    // 'batch'는 어떤 reveal에도 없다 — frame-0 앵커 (hard rule 6)
+                    problem: {
+                      reveal: ['spread', 'e-batch-spread'],
+                      highlight: ['batch', 'spread'],
+                      camera: { focus: ['batch', 'spread'], padding: 90 },
                     },
                     required: {
                       reveal: ['req', 'range', 'e-batch-req', 'e-range-hist', 'e-req-naive', 'naive'],
@@ -75,9 +82,9 @@ export const qbHistogramScene = defineScene(
                     },
                     local: {
                       reveal: ['hist', 'accum', 'e-req-hist', 'e-accum-hist'],
-                      highlight: ['hist'],
+                      highlight: ['hist', 'accum'],
                       pulse: ['e-req-hist'],
-                      camera: { focus: ['hist', 'accum'], padding: 60 },
+                      camera: { focus: ['req', 'hist', 'accum'], padding: 60 },
                     },
                     allreduce: {
                       reveal: ['ar', 'global', 'e-hist-ar', 'e-ar-global'],
@@ -93,14 +100,15 @@ export const qbHistogramScene = defineScene(
                     props: {
                       reveal: ['ema', 'e-center-ema'],
                       highlight: ['center', 'ema'],
-                      camera: { focus: ['center', 'ema'], padding: 60 },
+                      // 마지막 비트는 파이프라인 전체로 물러난다 (썸네일 프레임)
+                      camera: { focus: [] },
                     },
                   }}
                 />
               </div>
               <Stack gap={2} style={{ flex: 1, minWidth: 0, minHeight: 0 }}>
                 <Label size="sm" color="textSecondary" weight={600}>
-                  전문가 j의 필요 bias 분포 · B개 bin
+                  전문가 하나에 대한 필요 bias 분포 · 아래에서부터 세어 q ≈ 180k에 닿는 칸이 답
                 </Label>
                 <div style={{ flex: 1, minHeight: 0 }}>
                   <Fill>
@@ -124,31 +132,34 @@ export const qbHistogramScene = defineScene(
               <EqSteps
                 size="sm"
                 parts={[
-                  { tex: 'r_{ij} = \\alpha_i - s_{ij}' },
+                  { tex: 'r_{ij} = \\alpha_i - s_{ij} = -(s_{ij} - \\alpha_i)' },
                   { tex: '\\;\\in\\; [\\,b_{\\min}-1,\\; b_{\\max}+1\\,]', step: 'required' },
                   {
-                    tex: ',\\qquad \\hat b_j = b_{\\min}-1+\\Big(\\beta_j + \\mathrm{clip}\\big(\\tfrac{q-c_j}{h_j},0,1\\big)\\Big)w',
+                    tex: ',\\qquad \\hat b_j = \\mathrm{quantile}_{k/n}(r_{:,j}) = b_{\\min}-1+\\Big(\\beta_j + \\mathrm{clip}\\big(\\tfrac{q-c_j}{h_j},0,1\\big)\\Big)w',
                     step: 'read',
                   },
                 ]}
               />
               <Grid columns={3} gap={4}>
                 <Appear step="required" effect="rise">
-                  <Callout title="마진이 아니라 &lsquo;필요 bias&rsquo;를 담는다">
-                    r = α − s는 전문가 j를 토큰 i의 컷오프에 딱 올려놓는 bias. 부호가 뒤집혀 목표가 k/n
-                    분위수가 되고, s ∈ (0,1)이라 범위는 현재 bias가 묶어준다.
+                  <Callout title="세는 값은 마진이 아니라 필요 bias다">
+r = α − s는 전문가 j를 토큰 i의 컷오프에 딱 올려놓는 데 필요한 bias다. 배포에 쓰는 값이
+                    b = −β이므로, 마진의 위쪽 q개를 세는 대신 r의 아래쪽 q개를 세면 같은 답이 나온다.
+                    히스토그램을 아래에서부터 누적하는 이유가 그것이다. 구간도 따로 찾을 필요가 없다.
                   </Callout>
                 </Appear>
                 <Appear step="allreduce" effect="rise">
-                  <Callout tone="ok" title="통신은 스텝당 정수 all-reduce 하나">
-                    forward마다 각 랭크가 H ∈ ℕ<sup>n×B</sup>에 scatter-add — micro-batch 사이 통신 0.
-                    스텝 끝에 n·B개를 한 번 더하면 끝이고 비용은 <b>m과 무관</b>하다.
+                  <Callout tone="ok" title="주고받는 것은 스텝당 정수 표 하나">
+forward마다 각 랭크가 자기 표에 개수를 더해 넣기만 하므로 micro-batch 사이에는 통신이 없다.
+                    스텝이 끝날 때 n × B개의 정수를 한 번 더하면 그만이고, 이 비용은 토큰이 몇 개든{' '}
+                    <b>m과 무관하다</b>.
                   </Callout>
                 </Appear>
                 <Appear step="props" effect="rise">
-                  <Callout tone="ok" title="가산성이 곧 정확성">
-                    카운트가 더해지므로 전역 히스토그램은 샤딩 방식과 무관하게 같다 — 랭크별 분위수의
-                    평균이 아니라 풀링된 전 배치의 분위수. 오차는 bin 폭 이내.
+                  <Callout tone="ok" title="근사인데 왜 믿어도 되나">
+개수는 그냥 더해진다. 그래서 합쳐진 표는 배치를 어떻게 쪼개 놓았든 똑같고, 거기서 읽은 값은
+                    랭크별 분위수를 평균 낸 것이 아니라 전 배치를 한 덩어리로 본 분위수다. 남는 오차는
+                    칸 하나의 폭 안쪽이고, B = 1000이면 10<sup>−3</sup> 수준이다.
                   </Callout>
                 </Appear>
               </Grid>

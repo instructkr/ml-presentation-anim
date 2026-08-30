@@ -22,7 +22,7 @@ dec_lock_ref(node); evict(n)
  */
 export const sglangRadixScene = defineScene(
   {
-    id: '06-sglang-radix',
+    id: '11-sglang-radix',
     title: 'SGLang Radix Cache',
     steps: [
       step('tree', 2.4),
@@ -82,15 +82,16 @@ export const sglangRadixScene = defineScene(
               </Code>
             </Appear>
             <Appear step="evict" effect="rise">
-              <Callout title="회수는 leaf부터, 참조 카운트가 방패">
-                축출 힙에는 <b>lock_ref == 0인 leaf</b>만 들어간다. HiCache는 버리는 대신 host 계층으로
-                내린다.
+              <Callout title="회수는 leaf부터 시작한다">
+                축출 힙에 들어가는 것은 <b>lock_ref가 0인 leaf</b>뿐이다. 실행 중인 요청이 밟고 있는 경로는
+                참조 카운트가 막아 준다. HiCache를 켜면 버리는 대신 host 계층으로 내려보낸다.
               </Callout>
             </Appear>
             <Appear step="contrast" effect="rise">
               <Callout tone="warn" title="K3가 이 설계를 그대로 못 쓰는 이유">
-                트리가 자유로운 건 되살릴 게 KV뿐이고 KV가 토큰 단위로 쪼개져 있어서다. 하이브리드는
-                경계마다 <b>KDA 상태</b>도 필요한데, 고정 크기라 쪼갤 수 없어 드문 지점에만 떠 둔다.
+                트리가 아무 데서나 경계를 만들 수 있는 이유는 되살릴 것이 KV 하나뿐이고 그 KV가 토큰 단위로
+                쪼개져 있기 때문이다. 하이브리드는 같은 경계에 <b>KDA 상태</b>까지 있어야 하는데, 이쪽은
+                시퀀스당 고정 크기라 쪼갤 수가 없다. 그래서 드문 지점에만 떠 두게 된다.
               </Callout>
             </Appear>
           </Stack>

@@ -79,7 +79,7 @@ export const kdaPrefixCacheDetail = defineDiagram({
   groups: [
     {
       id: 'pool',
-      label: '통합 페이지 풀 — 두 캐시가 같은 바이트 크기의 페이지를 쓴다',
+      label: '두 캐시가 같은 바이트 크기의 페이지를 쓰는 통합 풀',
       rect: { x: 60, y: 40, w: 1320, h: 132 },
     },
     {
@@ -118,7 +118,7 @@ export const kdaPrefixCacheDetail = defineDiagram({
     {
       id: 'coarse',
       kind: 'annotation',
-      label: '기존 방식: 해시 단위 = 물리 블록 하나 → 6144개를 못 채운 요청은 등록조차 안 된다',
+      label: '기존 방식은 해시 단위가 곧 물리 블록이라, 6144개를 못 채운 요청은 인덱스에 등록조차 되지 않는다',
       variant: 'annotation',
       muted: true,
       ...at(600, 210, 900, 46),
@@ -127,7 +127,7 @@ export const kdaPrefixCacheDetail = defineDiagram({
       id: 'ckpt-note',
       kind: 'annotation',
       label:
-        '체크포인트는 크다 → 512 경계마다 다 남기지 못한다. 일부에만, 대개 대화 턴 경계. 그리고 반드시 해시 경계 위에.',
+        '체크포인트는 덩치가 커서 512 경계마다 다 남길 수 없다. 대개 대화 턴 경계에만 남기고, 자리는 반드시 해시 경계 위여야 한다',
       variant: 'annotation',
       ...at(1120, 448, 480, 96),
     },
@@ -156,14 +156,14 @@ export const kdaPrefixCacheDetail = defineDiagram({
     {
       id: 'pin',
       kind: 'op',
-      label: '히트 블록을 전 그룹에서 pin → private 블록으로 GPU copy',
+      label: '히트한 블록을 전 그룹에서 pin한 뒤 private 블록으로 복사한다',
       variant: 'norm',
       ...at(360, 664, 560, 74),
     },
     {
       id: 'resume',
       kind: 'io',
-      label: 'B부터 prefill 재개 · 구간 [0, B) 재계산 없음',
+      label: 'B 지점부터 prefill을 이어간다. 구간 [0, B)는 다시 계산하지 않는다',
       variant: 'io',
       ...at(1000, 664, 560, 74),
     },

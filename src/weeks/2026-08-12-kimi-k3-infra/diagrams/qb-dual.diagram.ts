@@ -1,96 +1,107 @@
 import { defineDiagram } from '@/lib/diagram';
 
 /**
- * Appendix C of the K3 report — *why* the update is a quantile.
+ * Appendix C, first half — the move that makes the whole thing work.
  *
- * The balanced-assignment LP (every token gets k experts, every expert gets
- * mk/n tokens) is relaxed and dualised; the dual decouples into one threshold
- * per token (α) and one per expert (β), and each coordinate minimiser is the
- * SAME (1−k/n) quantile taken along a different axis of the score matrix.
- * Alg. 1 alternates the two. Only β survives into routing — b = −β — which is
- * what keeps train and inference consistent.
+ * The point is not that a dual exists. It is that pricing the two constraints
+ * turns a batch-wide combinatorial assignment into a per-cell test,
+ * `s_ij − α_i − β_j > 0`, which is exactly the shape of a router that has to
+ * run on one token at inference time. β is then not "a Lagrange multiplier";
+ * it is the routing bias of the previous scene. Minimising the leftover
+ * function g is the next scene.
+ *
+ * Labels stay short on purpose: the sentences live in the scene's callouts, and
+ * a node wide enough to hold one drags the whole canvas below a readable scale.
  */
 export const qbDualDetail = defineDiagram({
   id: 'qb-dual',
   direction: 'TB',
-  layout: { rankGap: 64, nodeGap: 44 },
+  layout: { rankGap: 72, nodeGap: 44 },
   nodes: [
     {
       id: 'assign',
       kind: 'io',
-      label: '균형 배정 문제',
+      label: '원하는 배정',
       variant: 'io',
-      tex: '\\max_x \\sum_{i,j} x_{ij}\\, s_{ij}',
+      tex: '\\max_x \\; \\textstyle\\sum_{ij} x_{ij}\\, s_{ij}',
     },
     {
       id: 'cons',
       kind: 'annotation',
-      label: '제약: 토큰당 k개 · 전문가당 q개',
+      label: '행마다 k개, 열마다 q개',
       variant: 'annotation',
-      tex: '\\sum_j x_{ij} = k,\\quad \\sum_i x_{ij} = q',
+      tex: '\\textstyle\\sum_j x_{ij} = k,\\;\\; \\sum_i x_{ij} = q',
+    },
+    {
+      id: 'whynot',
+      kind: 'annotation',
+      label: '배치를 다 봐야 풀린다',
+      variant: 'annotation',
+    },
+    {
+      id: 'infer',
+      kind: 'annotation',
+      label: '추론에는 배치가 없다',
+      variant: 'annotation',
+    },
+    {
+      id: 'price',
+      kind: 'op',
+      label: '제약에 값을 매긴다',
+      variant: 'proj',
+      tex: '\\alpha_i, \\; \\beta_j',
+    },
+    {
+      id: 'lag',
+      kind: 'op',
+      label: '라그랑주 함수',
+      variant: 'op',
+      tex: 'L(x, \\alpha, \\beta)',
+    },
+    {
+      id: 'free',
+      kind: 'op',
+      label: '칸마다 따로 정해진다',
+      variant: 'route',
+      tex: 's_{ij} - \\alpha_i - \\beta_j > 0',
+    },
+    {
+      id: 'rule',
+      kind: 'io',
+      label: '토큰 하나만 보는 규칙',
+      variant: 'io',
+      tex: 'T_i = \\{\\, j : s_{ij} - \\beta_j > \\alpha_i \\,\\}',
+    },
+    {
+      id: 'isbias',
+      kind: 'annotation',
+      label: 'β가 곧 전문가별 bias',
+      variant: 'annotation',
     },
     {
       id: 'dual',
       kind: 'op',
-      label: '라그랑주 쌍대',
-      variant: 'op',
-      tex: 'L(\\alpha,\\beta)',
-    },
-    {
-      id: 'loop',
-      kind: 'op',
-      label: '교대 좌표 최소화',
-      variant: 'route',
-      tex: 't = 1 \\ldots T',
-    },
-    {
-      id: 'alpha',
-      label: '토큰 임계 · 행 방향',
-      variant: 'attention',
-      tex: '\\alpha_i \\leftarrow \\mathrm{quantile}_{1-k/n}(s_i - \\beta)',
-    },
-    {
-      id: 'beta',
-      label: '전문가 임계 · 열 방향',
+      label: '가격만의 함수가 남는다',
       variant: 'expertRouted',
-      tex: '\\beta_j \\leftarrow \\mathrm{quantile}_{1-k/n}(s_{:,j} - \\alpha)',
+      tex: 'g(\\alpha, \\beta)',
     },
     {
-      id: 'grad',
+      id: 'next',
       kind: 'annotation',
-      label: '같은 목적함수의 기울기 = 부하 오차',
+      label: '남은 일은 g의 최소화',
       variant: 'annotation',
-      tex: '\\partial L/\\partial \\beta_j = q - \\ell_j',
-    },
-    {
-      id: 'sign',
-      kind: 'annotation',
-      label: 'SignSGD 한 스텝 = DeepSeek 고정 스텝',
-      variant: 'annotation',
-    },
-    {
-      id: 'routing',
-      kind: 'io',
-      label: '라우팅에 남는 것은 β 뿐 · α는 폐기',
-      variant: 'io',
-      tex: 'T_i = \\mathrm{argtop}_k(s_i - \\beta),\\; b = -\\beta',
-    },
-    {
-      id: 'infer',
-      kind: 'io',
-      label: '추론: bias 동결 · 분위수 계산 없음',
-      variant: 'ffn',
     },
   ],
   edges: [
     { id: 'e-cons-assign', from: 'cons', to: 'assign', style: 'dashed', arrow: false },
-    { id: 'e-assign-dual', from: 'assign', to: 'dual', label: '완화 + 쌍대' },
-    { id: 'e-dual-loop', from: 'dual', to: 'loop' },
-    { id: 'e-loop-alpha', from: 'loop', to: 'alpha', label: 'Alg.1 line 3' },
-    { id: 'e-alpha-beta', from: 'alpha', to: 'beta', label: 'Alg.1 line 4' },
-    { id: 'e-beta-routing', from: 'beta', to: 'routing' },
-    { id: 'e-dual-grad', from: 'dual', to: 'grad', style: 'dashed' },
-    { id: 'e-grad-sign', from: 'grad', to: 'sign', style: 'dashed' },
-    { id: 'e-routing-infer', from: 'routing', to: 'infer' },
+    { id: 'e-assign-whynot', from: 'assign', to: 'whynot', style: 'dashed' },
+    { id: 'e-whynot-infer', from: 'whynot', to: 'infer', style: 'dotted', arrow: false },
+    { id: 'e-assign-price', from: 'assign', to: 'price' },
+    { id: 'e-price-lag', from: 'price', to: 'lag' },
+    { id: 'e-lag-free', from: 'lag', to: 'free', label: 'x로 최대화' },
+    { id: 'e-free-rule', from: 'free', to: 'rule' },
+    { id: 'e-rule-isbias', from: 'rule', to: 'isbias', style: 'dashed', arrow: false },
+    { id: 'e-lag-dual', from: 'lag', to: 'dual', label: 'x를 지우면' },
+    { id: 'e-dual-next', from: 'dual', to: 'next', style: 'dotted', arrow: false },
   ],
 });

@@ -3,13 +3,14 @@ import { defineDiagram } from '@/lib/diagram';
 /**
  * Appendix D — how the Eq. 14 quantile is actually computed at 3T scale.
  *
- * The exact quantile spans the whole global batch (millions of margins spread
- * over data-parallel ranks AND gradient-accumulation micro-batches), so it is
- * never materialised. Every rank scatter-adds the *required bias*
- * r_ij = α_i − s_ij into a per-expert histogram with no communication; one
- * integer all-reduce per layer per step pools the counts, and the quantile is
- * read back from the pooled histogram. Counts are additive, so the estimate is
- * the quantile of the pooled batch — not an average of per-rank quantiles.
+ * The exact quantile ranges over the whole global batch: millions of margins
+ * spread across data-parallel ranks *and* gradient-accumulation micro-batches,
+ * which never coexist anywhere. So the values are never gathered. Each rank
+ * scatter-adds the *required bias* r_ij = α_i − s_ij into a per-expert integer
+ * histogram with no communication at all, one all-reduce per layer per step
+ * pools the counts, and the quantile is read back off the pooled counts.
+ * Counts add, so what comes out is the quantile of the pooled batch — not an
+ * average of per-rank quantiles, which is a different and wrong number.
  */
 export const qbHistogramDetail = defineDiagram({
   id: 'qb-histogram',
@@ -19,9 +20,15 @@ export const qbHistogramDetail = defineDiagram({
     {
       id: 'batch',
       kind: 'io',
-      label: 'micro-batch · rank r',
+      label: '랭크 하나의 micro-batch',
       variant: 'io',
       tex: 's_{ij},\\; \\alpha_i',
+    },
+    {
+      id: 'spread',
+      kind: 'annotation',
+      label: '값이 랭크와 스텝에 흩어져 있다',
+      variant: 'annotation',
     },
     {
       id: 'req',
@@ -33,79 +40,80 @@ export const qbHistogramDetail = defineDiagram({
     {
       id: 'range',
       kind: 'annotation',
-      label: 'binning 구간 · 매 스텝 재계산',
+      label: '구간은 현재 bias가 정한다',
       variant: 'annotation',
       tex: '[\\,b_{\\min}-1,\\; b_{\\max}+1\\,],\\; B = 1000',
     },
     {
       id: 'hist',
       kind: 'op',
-      label: 'rank-local scatter-add',
+      label: '값 대신 개수만 센다',
       variant: 'op',
       shape: 'bars',
       tex: 'H \\in \\mathbb{N}^{n \\times B}',
-      size: { w: 240, h: 88 },
+      size: { w: 260, h: 92 },
     },
     {
       id: 'accum',
       kind: 'annotation',
-      label: '누적 스텝 전부 누적 · 통신 0',
+      label: '누적 스텝도 같은 표에',
       variant: 'annotation',
     },
     {
       id: 'ar',
       kind: 'op',
-      label: '정수 all-reduce (스텝당 1회)',
+      label: '스텝당 정수 all-reduce 1회',
       variant: 'attention',
-      tex: 'nB\\ \\mathrm{counts}',
+      tex: 'nB \\;\\text{counts}',
     },
     {
       id: 'global',
-      label: '전역 히스토그램',
+      label: '전 배치를 합친 표',
       variant: 'expertRouted',
       shape: 'bars',
-      tex: '\\sum_r H^{(r)}',
-      size: { w: 220, h: 88 },
+      tex: '\\textstyle\\sum_r H^{(r)}',
+      size: { w: 230, h: 92 },
     },
     {
       id: 'cum',
       kind: 'op',
-      label: '누적합이 목표 부하에 닿는 첫 bin',
+      label: '목표 q에 닿는 첫 칸',
       variant: 'op',
       tex: 'q = mk/n',
     },
     {
       id: 'interp',
       kind: 'op',
-      label: 'bin 내부 선형 보간',
+      label: '칸 안에서 선형 보간',
       variant: 'route',
       tex: '\\hat b_j = b_{\\min}-1+\\big(\\beta_j + \\tfrac{q-c_j}{h_j}\\big)w',
     },
     {
       id: 'center',
       kind: 'io',
-      label: '평균 제거 후 다음 스텝 bias',
+      label: '평균을 빼고 다음 bias로',
       variant: 'io',
-      tex: 'b^{(t+1)} = \\hat b - \\mathrm{mean}(\\hat b)\\mathbf{1}',
+      tex: 'b^{(t+1)} = \\hat b - \\mathrm{mean}(\\hat b)\\,\\mathbf{1}',
     },
     {
       id: 'ema',
       kind: 'annotation',
-      label: '선택: 스텝 간 EMA로 샘플링 잡음 완화',
+      label: '원하면 스텝 간 EMA',
       variant: 'annotation',
     },
     {
       id: 'naive',
       kind: 'annotation',
-      label: '대안: 마진 전량 수집 → 매 micro-batch O(mn) 통신',
+      label: '값을 모으면 micro-batch마다 O(mn)',
       variant: 'annotation',
       muted: true,
     },
   ],
   edges: [
+    { id: 'e-batch-spread', from: 'batch', to: 'spread', style: 'dashed', arrow: false },
     { id: 'e-batch-req', from: 'batch', to: 'req' },
     { id: 'e-range-hist', from: 'range', to: 'hist', style: 'dashed', arrow: false },
-    { id: 'e-req-hist', from: 'req', to: 'hist', label: 'bin 폭 w' },
+    { id: 'e-req-hist', from: 'req', to: 'hist', label: '칸 폭 w' },
     { id: 'e-accum-hist', from: 'accum', to: 'hist', style: 'dotted', arrow: false },
     { id: 'e-hist-ar', from: 'hist', to: 'ar' },
     { id: 'e-ar-global', from: 'ar', to: 'global' },

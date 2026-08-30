@@ -13,7 +13,7 @@ import { blockHashCacheDetail, blockHashIds } from '../diagrams/block-hash-cache
  */
 export const blockHashCacheScene = defineScene(
   {
-    id: '04-block-hash-cache',
+    id: '09-block-hash-cache',
     title: '블록 해시 캐시 기본기',
     steps: [
       step('block', 2.6),
@@ -76,9 +76,9 @@ export const blockHashCacheScene = defineScene(
           <Grid columns={3} gap={4}>
             <Appear step="block" effect="rise">
               <Callout title="블록이란 무엇인가">
-                KV 캐시를 토큰 하나씩 관리하면 메타데이터가 감당이 안 된다. 그래서 정해진 개수의 토큰
-                몫(그림에서는 512개)을 한 덩어리로 잡고, 할당·해제·참조 카운트를 모두 그 단위로
-                돌린다. 이 덩어리가 <b>블록</b>이다.
+                KV 캐시를 토큰 하나 단위로 관리하면 거기 딸려 오는 메타데이터를 감당할 수 없다. 그래서
+                정해진 개수의 토큰 몫을 한 덩어리로 잡고, 할당과 해제와 참조 카운트를 전부 그 단위로
+                돌린다. 이 덩어리가 <b>블록</b>이고, 그림에서는 512 토큰으로 잡았다.
               </Callout>
             </Appear>
             <Appear step="chain" effect="rise">
