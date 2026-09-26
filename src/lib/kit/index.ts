@@ -18,3 +18,4 @@ export * from './three/BillboardLabel';
 export * from './tensors/TensorMatrix';
 export * from './charts/BarChart';
 export * from './charts/LineChart';
+export * from './charts/ColumnBars';
