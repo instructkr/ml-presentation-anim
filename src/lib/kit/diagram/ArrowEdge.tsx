@@ -154,7 +154,8 @@ export const ArrowEdge: React.FC<ArrowEdgeProps> = ({
         strokeDashoffset={broken ? undefined : 1 - draw}
         style={broken && draw < 1 ? { opacity: draw } : undefined}
       />
-      {pulse ? (
+      {/* the pulse rides the edge, so it fades in with it — never on an edge not yet revealed */}
+      {pulse && draw > 0 ? (
         <path
           d={d}
           fill="none"
@@ -164,6 +165,7 @@ export const ArrowEdge: React.FC<ArrowEdgeProps> = ({
           pathLength={1}
           strokeDasharray="0.05 0.11"
           strokeDashoffset={-pulsePhase * 0.16}
+          style={draw < 1 ? { opacity: draw } : undefined}
         />
       ) : null}
       {arrow && draw > 0.97 ? (

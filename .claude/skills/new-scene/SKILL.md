@@ -14,7 +14,7 @@ Arguments: week id (or infer the latest week) + what to explain.
    - Formula beats → `Tex` with `Appear`, or `EqSteps` when terms should light up per beat (step-less parts double as the frame-0 anchor).
    - Benchmark/trend beats → `BarChart` / `LineChart` inside `<Fill>`, swept by `useStepProgress`.
    - Tensor/parallelism beats → `ThreeScene` + `TensorBox`/`GPUGrid`/`ParallelFlow` driven by `useStepProgress` — never `useFrame`, never drei `<Text>`.
-4. Korean narration labels, English technical terms; LaTeX backslashes escaped.
+4. Korean narration labels, English technical terms; LaTeX backslashes escaped. For what the scene actually *says* — defining terms, performing derivations, Korean that reads as Korean — follow the **`write-explanation`** skill.
 5. Wire into `manifest.ts`: add to `scenes: []` and attach as a `details` entry (alias related ids to the same `Detail` const) or a slide. Add a `notes.ts` entry for the scene id (and `'<id>/<step>'` overrides for tricky beats).
 6. Verify: `npm run check`, then render BOTH boundary stills and look at them — `npm run still -- <compId> out/last.png --frame=-1` (fully-revealed layout: cramped text/overflow shows here) and `--frame=0` (anchor visible, never bare).
 7. Report the composition id (`<weekId>--<sceneId>`) for Studio and where it's attached in the explorer.

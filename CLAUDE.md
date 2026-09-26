@@ -103,6 +103,7 @@ Layout in one breath: `WalkthroughStage` is the default scene skeleton (visual +
 - `Stack {direction?, gap?, align?, justify?}` · `Grid {columns, gap?}` · `Center` · `WalkthroughStage {visual, explanation, placement right|bottom|overlay, gap?}` — layout (gap in 8px units). WalkthroughStage is the default scene skeleton; its explanation rail never squeezes below ~460px.
 - `Fill {children: ({width, height}) => node}` — measures the flex/grid cell it sits in and hands exact pixels to the render prop; how charts and other numeric-size components go into a preset without pixel math. Transform-safe (offsetWidth), deterministic in renders.
 - `Title {sub?}` · `Label {size xs..xl, color?, weight?, mono?}` · `Callout {tone?, title?}` · `ExplainerCard {index?, eyebrow?, title, tone?}` — text; ko + inline English fine.
+- `Spec {label?, tone?, children}` — one implementation fact as a mono chip (eyebrow + value). Wrap in `Appear` so numbers, dims and formats arrive on the beat that needs them; callouts stay conceptual.
 - `Tex {children: string, display?, size sm..xl, color?}` — KaTeX.
 - `DiagramView {diagram, stepEffects?, width?, height?}` — step-driven diagram (scenes only). Omit width AND height to fill the parent cell (preferred); explicit pixels remain for hand-tuned scenes.
 - `Block/GroupBox/ArrowEdge` — diagram atoms (rarely used directly; DiagramView/explorer render them).

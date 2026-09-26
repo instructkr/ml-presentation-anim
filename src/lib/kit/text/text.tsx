@@ -155,3 +155,50 @@ export const ExplainerCard: React.FC<{
     </div>
   );
 };
+
+/**
+ * One implementation fact — a mono chip with a short eyebrow. Scenes keep the
+ * prose conceptual and let these appear (inside `Appear`) on the beat where the
+ * number or format actually matters.
+ */
+export const Spec: React.FC<{
+  label?: React.ReactNode;
+  tone?: 'info' | 'ok' | 'warn';
+  style?: React.CSSProperties;
+  children: React.ReactNode;
+}> = ({ label, tone = 'info', style, children }) => {
+  const t = useTheme();
+  const accent =
+    tone === 'ok' ? t.palette.colors.ok : tone === 'warn' ? t.palette.colors.warn : t.palette.colors.accent;
+  return (
+    <div
+      style={{
+        display: 'inline-flex',
+        alignItems: 'baseline',
+        gap: t.space(2),
+        padding: `${t.space(1)}px ${t.space(3)}px`,
+        border: `1px solid ${t.palette.colors.border}`,
+        borderRadius: t.radius.sm,
+        background: t.palette.colors.surface,
+        whiteSpace: 'nowrap',
+        ...style,
+      }}
+    >
+      {label ? (
+        <span style={{ color: accent, fontSize: t.fontSize.xs, fontWeight: 600, letterSpacing: '0.04em' }}>
+          {label}
+        </span>
+      ) : null}
+      <span
+        style={{
+          color: t.palette.colors.text,
+          fontFamily: t.fonts.mono,
+          fontSize: t.fontSize.xs,
+          fontVariantNumeric: 'tabular-nums',
+        }}
+      >
+        {children}
+      </span>
+    </div>
+  );
+};
