@@ -2,6 +2,7 @@ export * from './layout/SlideFrame';
 export * from './layout/Board';
 export * from './layout/containers';
 export * from './layout/Fill';
+export * from './layout/Panels';
 export * from './layout/FitScale';
 export * from './text/text';
 export * from './text/Code';

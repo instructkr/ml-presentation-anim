@@ -89,6 +89,9 @@ const toggleFullscreen = () => {
   else void document.documentElement.requestFullscreen();
 };
 
+/** guided paths longer than this show their stops as dots, naming only the current one */
+const LONG_PATH = 12;
+
 /** Same origin+path as the deck, minus hash/query — works under dev and preview. */
 const openNotesWindow = () => {
   const url = new URL('notes.html', window.location.href);
@@ -679,6 +682,7 @@ const Deck: React.FC = () => {
           {guidePath.map((id, i) => (
             <span
               key={id}
+              title={labelOf(week.explorable.root, id)}
               onClick={() => {
                 setPathIdx(i);
                 if (stack.length > 1) setStack((s) => s.slice(0, 1));
@@ -705,9 +709,16 @@ const Deck: React.FC = () => {
                   background: visited.has(id) ? t.palette.colors.ok : t.palette.colors.baseline,
                 }}
               />
-              {labelOf(week.explorable.root, id)}
+              {/* a long path would squeeze every label into a column of letters: past
+                  LONG_PATH items only the current stop is named, the rest are dots */}
+              {guidePath.length <= LONG_PATH || i === pathIdx ? labelOf(week.explorable.root, id) : null}
             </span>
           ))}
+          {guidePath.length > LONG_PATH ? (
+            <span style={{ fontFamily: t.fonts.num, color: t.palette.colors.muted }}>
+              {Math.max(0, pathIdx + 1)} / {guidePath.length}
+            </span>
+          ) : null}
         </div>
       ) : null}
 

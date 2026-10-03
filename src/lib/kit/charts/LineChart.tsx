@@ -12,6 +12,12 @@ export interface LineChartSeries {
   color?: string;
   /** drawn in the order given (no sorting), so authored order is the line order */
   points: LineChartPoint[];
+  /**
+   * 0..1 — this line's own reveal sweep, overriding the chart-level `progress`.
+   * Lets one beat draw one line and the next beat another; pin `xTicks`/`yTicks`
+   * so the axes already cover every line and never rescale.
+   */
+  progress?: number;
 }
 
 export type LineChartScale = 'linear' | 'log';
@@ -171,14 +177,22 @@ export const LineChart: React.FC<LineChartProps> = ({
   const toX = (v: number) => plotX + plotW * px(v);
   const toY = (v: number) => plotY + plotH * (1 - py(v));
 
-  const sweepX = plotX + plotW * p;
+  /** each series sweeps on its own progress when it has one, otherwise with the chart */
+  const sweepOf = (s: LineChartSeries) => clamp01(s.progress ?? p);
 
   return (
     <svg width={width} height={height} style={{ overflow: 'visible' }}>
       <defs>
-        <clipPath id={clipId}>
-          <rect x={plotX} y={plotY - MARKER_R - RING} width={plotW * p} height={plotH + 2 * (MARKER_R + RING)} />
-        </clipPath>
+        {series.map((s, i) => (
+          <clipPath key={i} id={`${clipId}-${i}`}>
+            <rect
+              x={plotX}
+              y={plotY - MARKER_R - RING}
+              width={plotW * sweepOf(s)}
+              height={plotH + 2 * (MARKER_R + RING)}
+            />
+          </clipPath>
+        ))}
       </defs>
 
       {yt.map((v) => (
@@ -197,7 +211,7 @@ export const LineChart: React.FC<LineChartProps> = ({
       />
       <line x1={plotX} y1={plotY} x2={plotX} y2={plotY + plotH} stroke={c.baseline} strokeWidth={t.stroke.thin} />
 
-      <g clipPath={`url(#${clipId})`}>
+      <g>
         {series.map((s, i) => {
           const color = resolveColor(t, s.color, t.palette.series[i % t.palette.series.length] ?? c.accent);
           const d = s.points.map((pt, j) => `${j === 0 ? 'M' : 'L'} ${toX(pt.x)} ${toY(pt.y)}`).join(' ');
@@ -206,7 +220,7 @@ export const LineChart: React.FC<LineChartProps> = ({
               ? { filter: `brightness(1.35) drop-shadow(0 0 10px ${color}88)` }
               : undefined;
           return (
-            <g key={`${s.label}-${i}`} style={glow}>
+            <g key={`${s.label}-${i}`} style={glow} clipPath={`url(#${clipId}-${i})`}>
               <path
                 d={d}
                 fill="none"
@@ -239,7 +253,7 @@ export const LineChart: React.FC<LineChartProps> = ({
         const endX = toX(last.x);
         // each label lands exactly as the sweep reaches its own line's end, so
         // the dot is never stranded ahead of the line it belongs to
-        const opacity = clamp01((sweepX - endX + LABEL_FADE_PX) / LABEL_FADE_PX);
+        const opacity = clamp01((plotX + plotW * sweepOf(s) - endX + LABEL_FADE_PX) / LABEL_FADE_PX);
         if (opacity <= 0) return null;
         const color = resolveColor(t, s.color, t.palette.series[i % t.palette.series.length] ?? c.accent);
         return (
