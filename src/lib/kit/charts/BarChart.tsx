@@ -91,7 +91,7 @@ export const BarChart: React.FC<BarChartProps> = ({
               textAnchor="end"
               dominantBaseline="central"
               fill={c.text}
-              fontFamily={t.fonts.sans}
+              fontFamily={t.fonts.text}
               fontSize={fontSize}
             >
               {d.label}
@@ -113,7 +113,7 @@ export const BarChart: React.FC<BarChartProps> = ({
                 y={labelY}
                 dominantBaseline="central"
                 fill={c.textSecondary}
-                fontFamily={t.fonts.mono}
+                fontFamily={t.fonts.num}
                 fontSize={fontSize}
                 opacity={valueOpacity}
               >

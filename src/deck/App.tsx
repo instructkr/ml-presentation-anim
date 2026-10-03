@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Diagram } from '@/lib/diagram/schema';
 import type { SceneModule } from '@/lib/timeline/types';
-import { useTheme } from '@/lib/theme';
+import { ThemeProvider, useTheme } from '@/lib/theme';
 import { FitScale } from '@/lib/kit/layout/FitScale';
 import {
   DetailView,
@@ -98,7 +98,23 @@ const openNotesWindow = () => {
   w?.focus();
 };
 
+/** The deck inside its week's look — a week that pins a palette keeps it for the home diagram, chrome and scenes. */
 export const App: React.FC = () => {
+  const [weekId, setWeekId] = useState(() => parseHash().weekId);
+  useEffect(() => {
+    const onHash = () => setWeekId(parseHash().weekId);
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+  const palette = weeks.find((w) => w.id === weekId)?.palette;
+  return (
+    <ThemeProvider palette={palette}>
+      <Deck />
+    </ThemeProvider>
+  );
+};
+
+const Deck: React.FC = () => {
   const t = useTheme();
   const [route, setRoute] = useState(parseHash);
   const week: WeekManifest | undefined = useMemo(
@@ -492,7 +508,7 @@ export const App: React.FC = () => {
           minHeight: '100%',
           background: t.palette.colors.page,
           color: t.palette.colors.text,
-          fontFamily: t.fonts.sans,
+          fontFamily: t.fonts.text,
           padding: 64,
         }}
       >
@@ -597,7 +613,7 @@ export const App: React.FC = () => {
             display: 'flex',
             gap: 10,
             alignItems: 'center',
-            fontFamily: t.fonts.sans,
+            fontFamily: t.fonts.text,
             fontSize: 19,
             color: t.palette.colors.textSecondary,
             background: 'rgba(13,13,13,0.8)',
@@ -652,7 +668,7 @@ export const App: React.FC = () => {
             display: 'flex',
             gap: 14,
             alignItems: 'center',
-            fontFamily: t.fonts.sans,
+            fontFamily: t.fonts.text,
             fontSize: 15,
             color: t.palette.colors.muted,
             background: 'rgba(13,13,13,0.8)',

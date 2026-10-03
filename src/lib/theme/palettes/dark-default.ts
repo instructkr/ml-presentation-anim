@@ -68,4 +68,16 @@ export const darkDefault: Palette = {
     annotation: { fill: 'transparent', stroke: 'transparent', text: '#b8b6ac' },
     group: { fill: 'rgba(255, 255, 255, 0.02)', stroke: 'rgba(255, 255, 255, 0.30)', text: '#b8b6ac' },
   },
+  ink: {
+    blue: series.blue,
+    teal: series.teal,
+    green: series.green,
+    yellow: '#d9bf5a',
+    gold: series.gold,
+    red: series.red,
+    maroon: series.rose,
+    purple: series.violet,
+    grey: '#807e76',
+    white: '#f2f1ec',
+  },
 };

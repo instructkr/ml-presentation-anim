@@ -86,7 +86,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
           gap: 18,
           padding: '14px 26px',
           borderBottom: `1px solid ${t.palette.colors.border}`,
-          fontFamily: t.fonts.sans,
+          fontFamily: t.fonts.text,
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 19, flex: 1, minWidth: 0 }}>
@@ -123,7 +123,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
                   borderRadius: 8,
                   padding: '7px 16px',
                   fontSize: 16,
-                  fontFamily: t.fonts.sans,
+                  fontFamily: t.fonts.text,
                   cursor: 'pointer',
                 }}
               >
@@ -149,7 +149,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
               color: t.palette.colors.text,
               padding: '8px 15px',
               cursor: 'pointer',
-              fontFamily: t.fonts.sans,
+              fontFamily: t.fonts.text,
               whiteSpace: 'nowrap',
             }}
           >
@@ -180,7 +180,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
               background: t.palette.colors.bg,
             }}
           >
-            <div style={{ padding: '18px 18px 12px', fontFamily: t.fonts.sans }}>
+            <div style={{ padding: '18px 18px 12px', fontFamily: t.fonts.text }}>
               <div
                 style={{
                   color: t.palette.colors.accent,
@@ -234,7 +234,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
                 fontSize: t.fontSize.sm,
                 lineHeight: 1.7,
                 color: t.palette.colors.textSecondary,
-                fontFamily: t.fonts.sans,
+                fontFamily: t.fonts.text,
                 wordBreak: 'keep-all',
               }}
             >

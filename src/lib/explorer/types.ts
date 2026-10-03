@@ -1,5 +1,6 @@
 import type React from 'react';
 import type { Diagram } from '../diagram/schema';
+import type { Palette } from '../theme/tokens';
 import type { SceneModule } from '../timeline/types';
 
 /** What opens when a diagram node (or group) is clicked. */
@@ -27,6 +28,11 @@ export interface WeekManifest {
   /** 'YYYY-MM-DD-topic' */
   id: string;
   title: string;
+  /**
+   * the look of this week's scenes and home diagram. Omit for the current
+   * default; weeks authored in an earlier look pin it (`darkDefault`).
+   */
+  palette?: Palette;
   explorable: Explorable;
   /** optional thin linear mode (title/benchmarks/closing) */
   slides?: SlideDef[];

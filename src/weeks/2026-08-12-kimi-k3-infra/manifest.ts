@@ -1,4 +1,5 @@
 import type { Detail, WeekManifest } from '@/lib/explorer/types';
+import { darkDefault } from '@/lib/theme';
 import { k3InfraIndex } from './diagrams/k3-infra-index.diagram';
 import { qbProblemScene } from './scenes/01-qb-problem';
 import { qbQuantileScene } from './scenes/02-qb-quantile';
@@ -50,6 +51,7 @@ const sglangRadix: Detail = { kind: 'scene', scene: sglangRadixScene };
 export const week20260812Infra: WeekManifest = {
   id: '2026-08-12-kimi-k3-infra',
   title: 'Kimi K3 심화 — QB · MoonEP · 캐시',
+  palette: darkDefault,
   explorable: {
     root: k3InfraIndex,
     details: {

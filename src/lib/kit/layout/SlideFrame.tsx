@@ -19,7 +19,7 @@ export const SlideFrame: React.FC<SlideFrameProps> = ({ title, footer, padding, 
       style={{
         background: t.palette.colors.bg,
         color: t.palette.colors.text,
-        fontFamily: t.fonts.sans,
+        fontFamily: t.fonts.text,
         wordBreak: 'keep-all',
         lineHeight: 1.5,
         padding: pad,

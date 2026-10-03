@@ -61,6 +61,8 @@ export interface ColumnBarsProps {
   yFormat?: (v: number) => string;
   /** rotated axis title left of the ticks */
   yLabel?: string;
+  /** px size of ticks, column labels and value labels (default 22) */
+  textSize?: number;
   width: number;
   height: number;
 }
@@ -72,6 +74,8 @@ const BAR_FILL = 0.62;
 const CORNER_R = 4;
 const TARGET_TICKS = 4;
 const DASH = '10 7';
+
+const NUMERIC = /^[\d\s.,+\-−%×]+$/;
 
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 const round = (v: number) => Number(v.toFixed(10));
@@ -266,11 +270,13 @@ export const ColumnBars: React.FC<ColumnBarsProps> = ({
   yTicks,
   yFormat = defaultFormat,
   yLabel,
+  textSize,
   width,
   height,
 }) => {
   const t = useTheme();
   const c = t.palette.colors;
+  const marks = t.palette.marks;
   const m = clamp01(morph);
   const p = clamp01(progress);
   const log = yScale === 'log';
@@ -301,9 +307,9 @@ export const ColumnBars: React.FC<ColumnBarsProps> = ({
   // a tick outside the domain would be clamped onto the plot edge under the wrong number
   const ticks = (yTicks ?? autoTicks(domain, yScale)).filter((v) => frac(v) >= -1e-9 && frac(v) <= 1 + 1e-9);
 
-  const tickFont = Math.max(22, t.fontSize.xs);
-  const labelFont = Math.max(22, t.fontSize.xs);
-  const valueFont = Math.max(22, t.fontSize.xs);
+  const tickFont = textSize ?? Math.max(22, t.fontSize.xs);
+  const labelFont = tickFont;
+  const valueFont = tickFont;
 
   const sideLabels = [...refLines.map((r) => r.label), ...bands.map((b) => b.label)].filter(
     (s): s is string => !!s,
@@ -387,7 +393,7 @@ export const ColumnBars: React.FC<ColumnBarsProps> = ({
                 dominantBaseline="central"
                 fill={color}
                 opacity={clamp01(op / 0.14)}
-                fontFamily={t.fonts.sans}
+                fontFamily={t.fonts.text}
                 fontSize={labelFont}
               >
                 {b.label}
@@ -408,7 +414,7 @@ export const ColumnBars: React.FC<ColumnBarsProps> = ({
         const color = resolveColor(t, colors?.[i], up ? posColor : negColor);
         const isMuted = mutedSet.has(i);
         const isHi = highlightSet.has(i);
-        const path = columnPath(cx - barW / 2, barW, yBase, yEnd, CORNER_R);
+        const path = columnPath(cx - barW / 2, barW, yBase, yEnd, marks?.radius ?? CORNER_R);
         const showValue = valueAlpha > 0 && (!valueSet || valueSet.has(i));
         return (
           <g key={`col-${i}`}>
@@ -416,6 +422,10 @@ export const ColumnBars: React.FC<ColumnBarsProps> = ({
               <path
                 d={path}
                 fill={color}
+                fillOpacity={marks?.fillOpacity ?? 1}
+                stroke={marks && marks.fillOpacity < 1 ? color : undefined}
+                strokeWidth={t.stroke.thin}
+                strokeLinejoin="round"
                 opacity={isMuted ? 0.28 : 1}
                 // color-mix, not a hex alpha suffix: `color` may be rgba() or a named CSS color
                 style={
@@ -433,7 +443,7 @@ export const ColumnBars: React.FC<ColumnBarsProps> = ({
                 dominantBaseline={up ? 'auto' : 'hanging'}
                 fill={isMuted ? c.muted : isHi ? c.text : c.textSecondary}
                 opacity={valueAlpha}
-                fontFamily={t.fonts.mono}
+                fontFamily={t.fonts.num}
                 fontSize={valueFont}
                 style={{ fontVariantNumeric: 'tabular-nums' }}
               >
@@ -448,7 +458,8 @@ export const ColumnBars: React.FC<ColumnBarsProps> = ({
                 dominantBaseline="hanging"
                 fill={isMuted ? c.muted : isHi ? c.text : c.textSecondary}
                 fontWeight={isHi ? 700 : 400}
-                fontFamily={t.fonts.sans}
+                // a bare number is set like the axis ticks; anything with words stays in the text face
+                fontFamily={NUMERIC.test(labels[i]!) ? t.fonts.num : t.fonts.text}
                 fontSize={labelFont}
               >
                 {labels[i]}
@@ -480,7 +491,7 @@ export const ColumnBars: React.FC<ColumnBarsProps> = ({
                 y={lineLabelY.get(i) ?? y}
                 dominantBaseline="central"
                 fill={color}
-                fontFamily={t.fonts.sans}
+                fontFamily={t.fonts.text}
                 fontSize={labelFont}
               >
                 {r.label}
@@ -498,7 +509,7 @@ export const ColumnBars: React.FC<ColumnBarsProps> = ({
           textAnchor="end"
           dominantBaseline="central"
           fill={c.textSecondary}
-          fontFamily={t.fonts.mono}
+          fontFamily={t.fonts.num}
           fontSize={tickFont}
         >
           {yFormat(v)}
@@ -509,7 +520,7 @@ export const ColumnBars: React.FC<ColumnBarsProps> = ({
           transform={`translate(${labelFont * 0.8}, ${plotY + plotH / 2}) rotate(-90)`}
           textAnchor="middle"
           fill={c.muted}
-          fontFamily={t.fonts.sans}
+          fontFamily={t.fonts.text}
           fontSize={labelFont}
         >
           {yLabel}

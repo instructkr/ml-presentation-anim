@@ -39,7 +39,7 @@ export const TensorMatrix: React.FC<TensorMatrixProps> = ({
   const total = Math.max(1, values.length * columns);
 
   return (
-    <div style={{ width, fontFamily: t.fonts.sans }}>
+    <div style={{ width, fontFamily: t.fonts.text }}>
       {title ? (
         <div
           style={{

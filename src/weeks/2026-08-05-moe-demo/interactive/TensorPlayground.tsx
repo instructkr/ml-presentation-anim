@@ -44,7 +44,7 @@ export const TensorPlayground: React.FC = () => {
           border: `1px solid ${t.palette.colors.border}`,
           borderRadius: 12,
           padding: '14px 22px',
-          fontFamily: t.fonts.sans,
+          fontFamily: t.fonts.text,
           fontSize: 17,
           color: t.palette.colors.textSecondary,
         }}

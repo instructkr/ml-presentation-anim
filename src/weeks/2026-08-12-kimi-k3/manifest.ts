@@ -1,4 +1,5 @@
 import type { Detail, WeekManifest } from '@/lib/explorer/types';
+import { darkDefault } from '@/lib/theme';
 import { kimiK3Arch } from './diagrams/kimi-k3-arch.diagram';
 import { titleScene } from './scenes/00-title';
 import { architectureScene } from './scenes/01-architecture';
@@ -27,6 +28,7 @@ const muon: Detail = { kind: 'scene', scene: perHeadMuonScene, label: 'Per-Head 
 export const week20260812: WeekManifest = {
   id: '2026-08-12-kimi-k3',
   title: 'Kimi K3 아키텍처',
+  palette: darkDefault,
   explorable: {
     root: kimiK3Arch,
     // the same explanation opens from the backbone block, from its magnified

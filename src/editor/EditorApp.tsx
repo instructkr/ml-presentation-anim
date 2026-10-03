@@ -109,7 +109,7 @@ export const EditorApp: React.FC = () => {
         display: 'flex',
         background: t.palette.colors.page,
         color: t.palette.colors.text,
-        fontFamily: t.fonts.sans,
+        fontFamily: t.fonts.text,
       }}
     >
       <aside

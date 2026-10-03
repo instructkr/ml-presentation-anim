@@ -1,4 +1,5 @@
 import type { Detail, WeekManifest } from '@/lib/explorer/types';
+import { darkDefault } from '@/lib/theme';
 import { kvLevers } from './diagrams/kv-levers.diagram';
 import { titleScene } from './scenes/00-title';
 import { kvBasicsScene } from './scenes/01-kv-basics';
@@ -26,6 +27,7 @@ const fp4: Detail = { kind: 'scene', scene: fp4KvScene };
 export const week20260913: WeekManifest = {
   id: '2026-09-13-deepseek-v41-flash',
   title: 'DeepSeek-V4.1-Flash KV 캐시 압축',
+  palette: darkDefault,
   explorable: {
     root: kvLevers,
     details: {

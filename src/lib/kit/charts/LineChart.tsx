@@ -250,7 +250,7 @@ export const LineChart: React.FC<LineChartProps> = ({
               y={toY(last.y)}
               dominantBaseline="central"
               fill={c.text}
-              fontFamily={t.fonts.sans}
+              fontFamily={t.fonts.text}
               fontSize={labelFont}
             >
               {s.label}
@@ -267,7 +267,7 @@ export const LineChart: React.FC<LineChartProps> = ({
           textAnchor="end"
           dominantBaseline="central"
           fill={c.textSecondary}
-          fontFamily={t.fonts.mono}
+          fontFamily={t.fonts.num}
           fontSize={tickFont}
         >
           {yFormat(v)}
@@ -287,7 +287,7 @@ export const LineChart: React.FC<LineChartProps> = ({
             textAnchor={anchor}
             dominantBaseline="hanging"
             fill={c.textSecondary}
-            fontFamily={t.fonts.mono}
+            fontFamily={t.fonts.num}
             fontSize={tickFont}
           >
             {xFormat(v)}
@@ -301,7 +301,7 @@ export const LineChart: React.FC<LineChartProps> = ({
           y={height - t.space(1)}
           textAnchor="middle"
           fill={c.muted}
-          fontFamily={t.fonts.sans}
+          fontFamily={t.fonts.text}
           fontSize={labelFont}
         >
           {xLabel}
@@ -312,7 +312,7 @@ export const LineChart: React.FC<LineChartProps> = ({
           transform={`translate(${labelFont * 0.8}, ${plotY + plotH / 2}) rotate(-90)`}
           textAnchor="middle"
           fill={c.muted}
-          fontFamily={t.fonts.sans}
+          fontFamily={t.fonts.text}
           fontSize={labelFont}
         >
           {yLabel}

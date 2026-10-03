@@ -190,7 +190,7 @@ export const ArrowEdge: React.FC<ArrowEdgeProps> = ({
             dominantBaseline="central"
             style={{
               fontSize: 19,
-              fontFamily: numericLabel ? t.fonts.mono : t.fonts.sans,
+              fontFamily: numericLabel ? t.fonts.num : t.fonts.text,
               fontVariantNumeric: 'tabular-nums',
               letterSpacing: numericLabel ? '0.01em' : undefined,
               fill: t.palette.colors.textSecondary,

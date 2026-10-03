@@ -1,4 +1,5 @@
 import type { WeekManifest } from '@/lib/explorer/types';
+import { darkDefault } from '@/lib/theme';
 import { moeArch } from './diagrams/moe-arch.diagram';
 import { titleScene } from './scenes/00-title';
 import { attentionScene } from './scenes/01-attention';
@@ -13,6 +14,7 @@ import { presenterNotes } from './notes';
 export const week20260805: WeekManifest = {
   id: '2026-08-05-moe-demo',
   title: 'Mixture of Experts 해부',
+  palette: darkDefault,
   explorable: {
     root: moeArch,
     details: {

@@ -52,7 +52,7 @@ export const GroupBox: React.FC<GroupBoxProps> = ({
             fontWeight: 500,
             letterSpacing: 1,
             color: v.text,
-            fontFamily: t.fonts.sans,
+            fontFamily: t.fonts.text,
             background: t.palette.colors.bg,
             padding: '2px 10px',
             borderRadius: 6,

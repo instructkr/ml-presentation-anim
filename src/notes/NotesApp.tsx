@@ -71,7 +71,7 @@ export const NotesApp: React.FC = () => {
     flexDirection: 'column',
     background: c.page,
     color: c.text,
-    fontFamily: t.fonts.sans,
+    fontFamily: t.fonts.text,
   };
 
   if (!state) {
@@ -168,7 +168,7 @@ export const NotesApp: React.FC = () => {
               gap: 8,
             }}
           >
-            <span style={{ fontSize: 13, color: c.muted, fontFamily: t.fonts.sans }}>경과</span>
+            <span style={{ fontSize: 13, color: c.muted, fontFamily: t.fonts.text }}>경과</span>
             {fmtElapsed(now - (startAt ?? now))}
           </button>
           <span style={{ fontFamily: t.fonts.mono, fontSize: 20, color: c.muted }}>

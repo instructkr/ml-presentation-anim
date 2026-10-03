@@ -1,4 +1,5 @@
 import type { DetailsMap, WeekManifest } from '@/lib/explorer/types';
+import { darkDefault } from '@/lib/theme';
 import { trainingPipeline } from './diagrams/training-pipeline.diagram';
 import { sftNote } from './details/sft-note';
 import { titleScene } from './scenes/00-title';
@@ -51,6 +52,7 @@ const details: DetailsMap = {
 export const week20260927: WeekManifest = {
   id: '2026-09-27-mimo-v26',
   title: 'MiMo-V2.6 학습: 옵티마이저와 RL 목적함수',
+  palette: darkDefault,
   explorable: {
     root: trainingPipeline,
     details,

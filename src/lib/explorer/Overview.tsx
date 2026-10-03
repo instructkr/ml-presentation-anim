@@ -76,7 +76,7 @@ const Card: React.FC<{ item: OverviewItem; onSelect: (t: OverviewTarget) => void
             ? `0 10px 30px ${alpha(c.page, 0.5)}`
             : 'none',
         cursor: 'pointer',
-        fontFamily: t.fonts.sans,
+        fontFamily: t.fonts.text,
         transform: active ? 'translateY(-2px)' : 'none',
         transition: 'transform 130ms ease, box-shadow 130ms ease, background 130ms ease, border-color 130ms ease',
       }}
@@ -190,7 +190,7 @@ export const Overview: React.FC<OverviewProps> = ({ weekTitle, sections, onSelec
         WebkitBackdropFilter: 'blur(14px)',
         display: 'flex',
         flexDirection: 'column',
-        fontFamily: t.fonts.sans,
+        fontFamily: t.fonts.text,
       }}
     >
       <div

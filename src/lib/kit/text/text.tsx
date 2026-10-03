@@ -49,7 +49,7 @@ export const Label: React.FC<LabelProps> = ({
         fontWeight: weight,
         lineHeight: 1.45,
         color: resolveColor(t, color, t.palette.colors.text),
-        fontFamily: mono ? t.fonts.mono : t.fonts.sans,
+        fontFamily: mono ? t.fonts.mono : t.fonts.text,
         ...style,
       }}
     >

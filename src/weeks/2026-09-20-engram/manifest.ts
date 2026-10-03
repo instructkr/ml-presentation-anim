@@ -1,4 +1,5 @@
 import type { Detail, WeekManifest } from '@/lib/explorer/types';
+import { darkDefault } from '@/lib/theme';
 import { engramArch, engramIds } from './diagrams/engram-arch.diagram';
 import { titleScene } from './scenes/00-title';
 import { whyMemoryScene } from './scenes/01-why-memory';
@@ -37,6 +38,7 @@ const aliases = (ids: string[], d: Detail) => Object.fromEntries(ids.map((id) =>
 export const week20260920: WeekManifest = {
   id: '2026-09-20-engram',
   title: 'Engram: 조회로 만드는 조건부 메모리',
+  palette: darkDefault,
   explorable: {
     root: engramArch,
     details: {

@@ -53,7 +53,7 @@ const Scene: React.FC = () => {
           opacity={Math.min(1, moveP * 2)}
         />
       </ThreeScene>
-      <AbsoluteFill style={{ pointerEvents: 'none', padding: 64, fontFamily: t.fonts.sans }}>
+      <AbsoluteFill style={{ pointerEvents: 'none', padding: 64, fontFamily: t.fonts.text }}>
         <Label size="lg" weight={700}>
           Tensor Parallelism: hidden 차원 분할
         </Label>
