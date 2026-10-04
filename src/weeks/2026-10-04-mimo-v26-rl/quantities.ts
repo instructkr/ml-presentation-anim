@@ -66,6 +66,24 @@ export const INK = {
   /** Muown의 행 방향 R (the Muown paper's letter; not the reward) */
   dir: 'maroon',
 
+  // ── infrastructure (§4.1, §6) ─────────────────────────────────────────────
+  /** 풀이를 쓰는 구간 — tokens written by the copy's first version */
+  run: 'blue',
+  /** 모델을 고친 뒤 이어 쓴 구간 — tokens written by the next version */
+  runNext: 'teal',
+  /** 다시 읽는 구간 (re-prefill): where the cost is paid */
+  reread: 'red',
+  /** Rollout이 남긴 기록: 고른 Expert 번호, top-p 후보 집합 */
+  record: 'gold',
+  /** 배치에서 차지할 몫 B (Sample Mixer) */
+  share: 'purple',
+  /** 그룹을 받아들이는 비율 — §6.3 writes it r_i; it is not the ratio r of Eq. 1 */
+  accept: 'green',
+  /** 풀이 하나에 걸리는 시간 t */
+  time: 'blue',
+  /** 자리: 동시에 도는 풀이 수, 남은 KV cache 용량 */
+  slots: 'gold',
+
   // ── distillation ──────────────────────────────────────────────────────────
   student: 'blue',
   teacher: 'gold',

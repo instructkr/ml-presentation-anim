@@ -7,6 +7,7 @@ const AGENDA = [
   'RL 한 스텝과 Eq. 1',
   '환경과 harness',
   '채점: GRS, GAR, 감점',
+  '큰 배치를 돌리는 인프라',
   '30 스텝에서 얻은 교훈',
   'MOPD2',
 ];
