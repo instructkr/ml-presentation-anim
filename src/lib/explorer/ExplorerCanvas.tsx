@@ -30,8 +30,21 @@ export interface ExplorerCanvasProps {
   openRequest?: { id: string; nonce: number } | null;
   /** bump to reset the viewport (after closing a detail) */
   resetRequest?: number;
-  /** ids kept visually active (used by the persistent architecture rail) */
+  /** ids kept visually active (used by the detail view's rail) */
   activeIds?: string[];
+  /**
+   * node or group ids the view frames instead of the whole diagram; it glides
+   * to a new frame when they change. The rail frames the open module's group.
+   */
+  frameIds?: string[];
+  /**
+   * keeps the view parked on this node without animating. The deck passes the
+   * open module while a detail covers the canvas, so closing the detail zooms
+   * out from where the talk is, wherever it was opened from.
+   */
+  followId?: string | null;
+  /** a click opens the module at once, without the zoom (the rail) */
+  instantOpen?: boolean;
   /** disable opening modules while keeping pan/zoom available */
   interactive?: boolean;
   showMiniMap?: boolean;
@@ -52,6 +65,8 @@ type BlockNodeData = {
   visited: boolean;
   active: boolean;
   defocused: boolean;
+  /** outside the framed part of the diagram: kept mounted (and measured) but not drawn */
+  hidden: boolean;
   direction: 'TB' | 'LR';
 };
 
@@ -66,6 +81,7 @@ type GroupNodeData = {
   visited: boolean;
   active: boolean;
   defocused: boolean;
+  hidden: boolean;
 };
 
 const BlockNode: React.FC<NodeProps> = ({ data }) => {
@@ -81,7 +97,7 @@ const BlockNode: React.FC<NodeProps> = ({ data }) => {
       style={{
         position: 'relative',
         cursor: d.hasDetail ? 'pointer' : 'default',
-        opacity: d.defocused ? 0.32 : 1,
+        opacity: d.hidden ? 0 : d.defocused ? 0.32 : 1,
         transform: d.active ? 'scale(1.035)' : 'scale(1)',
         borderRadius: t.radius.sm,
         boxShadow:
@@ -144,7 +160,7 @@ const GroupNode: React.FC<NodeProps> = ({ data }) => {
       style={{
         position: 'relative',
         cursor: d.hasDetail ? 'pointer' : 'default',
-        opacity: d.defocused ? 0.32 : 1,
+        opacity: d.hidden ? 0 : d.defocused ? 0.32 : 1,
         transform: d.active ? 'scale(1.015)' : 'scale(1)',
         borderRadius: t.radius.lg,
         boxShadow:
@@ -199,6 +215,9 @@ const Inner: React.FC<ExplorerCanvasProps> = ({
   openRequest,
   resetRequest,
   activeIds = [],
+  frameIds,
+  followId,
+  instantOpen = false,
   interactive = true,
   showMiniMap = true,
   showBackground = true,
@@ -209,6 +228,26 @@ const Inner: React.FC<ExplorerCanvasProps> = ({
   const [transitionFocus, setTransitionFocus] = useState<string | null>(null);
   const openTimerRef = useRef<number | null>(null);
   const active = useMemo(() => new Set([...activeIds, ...(transitionFocus ? [transitionFocus] : [])]), [activeIds, transitionFocus]);
+
+  const frameKey = frameIds?.join('|') ?? '';
+  /** ids drawn while a part is framed: everything that overlaps the framed part's bounds (null = all) */
+  const framed = useMemo(() => {
+    if (!frameKey) return null;
+    const ids = new Set(frameKey.split('|'));
+    const groups = layout.groups.map((g) => ({ id: g.group.id, x: g.x, y: g.y, w: g.w, h: g.h }));
+    const blocks = layout.nodes.map((n) => ({ id: n.node.id, x: n.x, y: n.y, w: n.w, h: n.h }));
+    const all = [...groups, ...blocks];
+    const part = all.filter((r) => ids.has(r.id));
+    if (part.length === 0) return null;
+    const x0 = Math.min(...part.map((r) => r.x));
+    const y0 = Math.min(...part.map((r) => r.y));
+    const x1 = Math.max(...part.map((r) => r.x + r.w));
+    const y1 = Math.max(...part.map((r) => r.y + r.h));
+    return new Set(
+      all.filter((r) => r.x < x1 && r.x + r.w > x0 && r.y < y1 && r.y + r.h > y0).map((r) => r.id),
+    );
+  }, [frameKey, layout]);
+  const isHidden = (id: string) => framed !== null && !framed.has(id);
 
   useEffect(
     () => () => {
@@ -227,6 +266,7 @@ const Inner: React.FC<ExplorerCanvasProps> = ({
       draggable: false,
       connectable: false,
       selectable: false,
+      style: isHidden(g.group.id) ? { pointerEvents: 'none' } : undefined,
       data: {
         label: g.group.label,
         labelLeft: g.group.label
@@ -246,6 +286,7 @@ const Inner: React.FC<ExplorerCanvasProps> = ({
         visited: visited.has(g.group.id),
         active: active.has(g.group.id),
         defocused: transitionFocus !== null && transitionFocus !== g.group.id,
+        hidden: isHidden(g.group.id),
       } satisfies GroupNodeData,
     }));
     const blocks: RFNode[] = layout.nodes.map((n) => ({
@@ -255,6 +296,7 @@ const Inner: React.FC<ExplorerCanvasProps> = ({
       draggable: false,
       connectable: false,
       selectable: false,
+      style: isHidden(n.node.id) ? { pointerEvents: 'none' } : undefined,
       data: {
         label: n.node.label,
         tex: n.node.tex,
@@ -269,11 +311,13 @@ const Inner: React.FC<ExplorerCanvasProps> = ({
         visited: visited.has(n.node.id),
         active: active.has(n.node.id),
         defocused: transitionFocus !== null && transitionFocus !== n.node.id,
+        hidden: isHidden(n.node.id),
         direction: diagram.direction,
       } satisfies BlockNodeData,
     }));
     return [...groups, ...blocks];
-  }, [layout, details, visited, diagram.direction, interactive, active, transitionFocus]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layout, details, visited, diagram.direction, interactive, active, transitionFocus, framed]);
 
   const edges = useMemo<RFEdge[]>(
     () =>
@@ -284,6 +328,7 @@ const Inner: React.FC<ExplorerCanvasProps> = ({
           source: e.from,
           target: e.to,
           type: 'kitEdge',
+          hidden: isHidden(e.from) || isHidden(e.to),
           // Dagre/manual layout owns routing. React Flow is the viewport, not a
           // second edge-layout engine with conflicting fixed handles.
           data: {
@@ -298,7 +343,8 @@ const Inner: React.FC<ExplorerCanvasProps> = ({
           },
         };
       }),
-    [layout, t],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [layout, t, framed],
   );
 
   const zoomThenOpen = (id: string) => {
@@ -324,6 +370,26 @@ const Inner: React.FC<ExplorerCanvasProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resetRequest]);
 
+  useEffect(() => {
+    if (!followId) return;
+    setTransitionFocus(followId);
+    rf.fitView({ nodes: [{ id: followId }], duration: 0, padding: 1.4, maxZoom: 1.18 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [followId]);
+
+  const fitOptions = useMemo(
+    () => ({ padding: 0.12, maxZoom: 1.05, nodes: frameKey ? frameKey.split('|').map((id) => ({ id })) : undefined }),
+    [frameKey],
+  );
+  const framedRef = useRef(frameKey);
+  useEffect(() => {
+    // the first frame is the mount-time fit below; only a change glides
+    if (framedRef.current === frameKey) return;
+    framedRef.current = frameKey;
+    rf.fitView({ ...fitOptions, duration: 450 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [frameKey]);
+
   return (
     <ReactFlow
       nodes={nodes}
@@ -331,11 +397,13 @@ const Inner: React.FC<ExplorerCanvasProps> = ({
       nodeTypes={nodeTypes}
       edgeTypes={edgeTypes}
       fitView
-      fitViewOptions={{ padding: 0.12, maxZoom: 1.05 }}
+      fitViewOptions={fitOptions}
       minZoom={0.2}
       maxZoom={2.5}
       onNodeClick={(_, node) => {
-        if (interactive && node.id in details) zoomThenOpen(node.id);
+        if (!interactive || !(node.id in details) || isHidden(node.id)) return;
+        if (instantOpen) onOpen(node.id);
+        else zoomThenOpen(node.id);
       }}
       nodesDraggable={false}
       nodesConnectable={false}

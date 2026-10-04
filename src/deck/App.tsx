@@ -36,8 +36,12 @@ interface OpenDetail {
   title: string;
   items: Detail[];
   tab: number;
-  wasVisited: boolean;
+  /** open on the last frame instead of building in (a revisit, or a step back into it) */
+  revealed: boolean;
 }
+
+/** how a detail comes on: 'auto' builds in unless already visited, 'end' shows its last scene finished */
+type Entry = 'auto' | 'end';
 
 const parseHash = (): { weekId: string | null; slides: boolean } => {
   const m = window.location.hash.match(/^#\/([^/]+)(\/slides)?/);
@@ -164,35 +168,58 @@ const Deck: React.FC = () => {
   const guidePath = useMemo(() => week?.explorable.path ?? [], [week]);
   const slides = useMemo(() => week?.slides ?? [], [week]);
 
+  /**
+   * Put a module's detail on screen. Works with a detail already open — the
+   * view swaps in place. False for a nested diagram, which is a level of the
+   * canvas and has to be opened through it.
+   */
+  const showDetail = useCallback(
+    (diagram: Diagram, details: DetailsMap, nodeId: string, entry: Entry): boolean => {
+      const d = details[nodeId];
+      if (!d) return false;
+      const items = Array.isArray(d) ? d : [d];
+      if (items.length === 1 && items[0]!.kind === 'diagram') return false;
+      const lastScene = items.map((item) => item.kind).lastIndexOf('scene');
+      setVisited((v) => new Set(v).add(nodeId));
+      setOpen({
+        nodeId,
+        title: labelOf(diagram, nodeId),
+        items,
+        tab: entry === 'end' && lastScene >= 0 ? lastScene : 0,
+        revealed: entry === 'end' || visited.has(nodeId),
+      });
+      return true;
+    },
+    [visited],
+  );
+
   const handleOpen = useCallback(
     (nodeId: string) => {
       if (!level) return;
       const d = level.details[nodeId];
       if (!d) return;
-      const items = Array.isArray(d) ? d : [d];
-      const wasVisited = visited.has(nodeId);
-      setVisited((v) => new Set(v).add(nodeId));
-      const path = week?.explorable.path;
-      if (path && stack.length === 1) {
-        const i = path.indexOf(nodeId);
+      if (stack.length === 1) {
+        const i = guidePath.indexOf(nodeId);
         if (i >= 0) setPathIdx(i);
       }
-      const first = items[0]!;
-      if (items.length === 1 && first.kind === 'diagram') {
-        setStack((s) => [
-          ...s,
-          {
-            diagram: first.diagram,
-            details: first.details ?? {},
-            title: labelOf(level.diagram, nodeId),
-            nodeId,
-          },
-        ]);
-      } else {
-        setOpen({ nodeId, title: labelOf(level.diagram, nodeId), items, tab: 0, wasVisited });
-      }
+      if (showDetail(level.diagram, level.details, nodeId, 'auto')) return;
+      const first = Array.isArray(d) ? d[0] : d;
+      if (first?.kind !== 'diagram') return;
+      // a nested level takes over the canvas, so a detail it was opened from (its rail) closes
+      playerHandleRef.current = null;
+      setOpen(null);
+      setVisited((v) => new Set(v).add(nodeId));
+      setStack((s) => [
+        ...s,
+        {
+          diagram: first.diagram,
+          details: first.details ?? {},
+          title: labelOf(level.diagram, nodeId),
+          nodeId,
+        },
+      ]);
     },
-    [level, visited, week, stack.length],
+    [level, stack.length, guidePath, showDetail],
   );
 
   const closeDetail = useCallback(() => {
@@ -201,18 +228,26 @@ const Deck: React.FC = () => {
     setResetReq((n) => n + 1);
   }, []);
 
+  /**
+   * Move along the guided path. From the home the canvas flies to the module
+   * and opens it; with a detail already open the next one replaces it in place,
+   * so a talk runs scene to scene without going back through the home.
+   */
   const goPath = useCallback(
-    (dir: 1 | -1) => {
-      const path = week?.explorable.path;
-      if (!path || path.length === 0) return;
-      const next = Math.min(path.length - 1, Math.max(0, pathIdx + dir));
-      if (next === pathIdx && dir === 1 && pathIdx >= 0) return;
-      if (open) closeDetail();
+    (dir: 1 | -1, entry: Entry = 'auto') => {
+      if (!week || guidePath.length === 0) return;
+      const next = Math.min(guidePath.length - 1, Math.max(0, pathIdx + dir));
+      if (next === pathIdx && (open || (dir === 1 && pathIdx >= 0))) return;
+      const id = guidePath[next]!;
       if (stack.length > 1) setStack((s) => s.slice(0, 1));
       setPathIdx(next);
-      setOpenReq({ id: path[next]!, nonce: Date.now() + Math.random() });
+      if (open) {
+        if (showDetail(week.explorable.root, week.explorable.details, id, entry)) return;
+        closeDetail();
+      }
+      setOpenReq({ id, nonce: Date.now() + Math.random() });
     },
-    [week, pathIdx, open, closeDetail, stack.length],
+    [week, guidePath, pathIdx, open, showDetail, closeDetail, stack.length],
   );
 
   // ── presenter state ────────────────────────────────────────────────────────
@@ -448,27 +483,49 @@ const Deck: React.FC = () => {
       }
 
       const inSlides = route.slides;
-      switch (key) {
-        case ' ': {
-          e.preventDefault();
-          const advanced = playerHandleRef.current?.advance();
-          if (inSlides && advanced === false) {
-            setSlideIdx((i) => Math.min((week.slides?.length ?? 1) - 1, i + 1));
-          } else if (!inSlides && open && advanced === false) {
-            const nextScene = open.items.findIndex((item, i) => i > open.tab && item.kind === 'scene');
-            if (nextScene >= 0) setOpen((current) => (current ? { ...current, tab: nextScene } : current));
-          }
-          break;
+      // one beat on; past a scene's last beat, on to the next scene
+      const forward = () => {
+        const advanced = playerHandleRef.current?.advance();
+        if (inSlides) {
+          if (advanced === false) setSlideIdx((i) => Math.min((week.slides?.length ?? 1) - 1, i + 1));
+          return;
         }
+        if (!open) return;
+        // nothing left to play here (the last beat, or a tab that is not a scene):
+        // go on to the module's next scene, then to the next stop of the path
+        const done = advanced === false || (advanced === undefined && activeItem?.kind !== 'scene');
+        if (!done) return;
+        const nextScene = open.items.findIndex((item, i) => i > open.tab && item.kind === 'scene');
+        if (nextScene >= 0) setOpen((current) => (current ? { ...current, tab: nextScene } : current));
+        else goPath(1);
+      };
+      // one beat back; before a scene's first beat, into the scene before it, shown finished
+      const backward = () => {
+        const moved = playerHandleRef.current?.back();
+        if (inSlides || !open || moved !== false) return;
+        const prevScene = open.tab > 0 ? open.items.map((item) => item.kind).lastIndexOf('scene', open.tab - 1) : -1;
+        if (prevScene >= 0) setOpen((current) => (current ? { ...current, tab: prevScene, revealed: true } : current));
+        else goPath(-1, 'end');
+      };
+
+      switch (key) {
+        case ' ':
+        case 'ArrowDown':
+          e.preventDefault();
+          forward();
+          break;
+        // in the slides the side arrows turn whole slides; everywhere else they step like Space and ↑
         case 'ArrowRight':
           if (inSlides) setSlideIdx((i) => Math.min((week.slides?.length ?? 1) - 1, i + 1));
+          else forward();
           break;
         case 'ArrowLeft':
           if (inSlides) setSlideIdx((i) => Math.max(0, i - 1));
+          else backward();
           break;
         case 'ArrowUp':
         case 'Backspace':
-          playerHandleRef.current?.back();
+          backward();
           break;
         case 'r':
           playerHandleRef.current?.restart();
@@ -502,7 +559,7 @@ const Deck: React.FC = () => {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [week, route.slides, open, stack.length, closeDetail, goPath, overview]);
+  }, [week, route.slides, open, activeItem, stack.length, closeDetail, goPath, overview]);
 
   if (!week) {
     return (
@@ -517,8 +574,8 @@ const Deck: React.FC = () => {
       >
         <h1 style={{ fontSize: 44, marginBottom: 8 }}>ML Weekly — Explorer</h1>
         <p style={{ color: t.palette.colors.muted, marginBottom: 40 }}>
-          주차를 선택하세요. (n/p: 가이드 경로 · Space: 다음 단계 · o: 개요 · s: 발표자 노트 · Esc:
-          뒤로 · f: 전체화면)
+          주차를 선택하세요. (n/p: 가이드 경로 · Space/→: 다음 단계 · ←: 이전 단계 · o: 개요 · s: 발표자
+          노트 · Esc: 뒤로 · f: 전체화면)
         </p>
         {weeks.map((w) => (
           <div key={w.id} style={{ marginBottom: 18, fontSize: 24 }}>
@@ -538,6 +595,14 @@ const Deck: React.FC = () => {
       </div>
     );
   }
+
+  // the rail shows the chapter the open module belongs to: its group, or itself when it is one
+  const railFrame = ((): string[] | undefined => {
+    if (!open || !level) return undefined;
+    if (level.diagram.groups.some((g) => g.id === open.nodeId)) return [open.nodeId];
+    const parent = level.diagram.nodes.find((n) => n.id === open.nodeId)?.parent;
+    return parent ? [parent] : undefined;
+  })();
 
   const overviewOverlay = overview ? (
     <Overview
@@ -604,6 +669,7 @@ const Deck: React.FC = () => {
           onOpen={handleOpen}
           openRequest={stack.length === 1 ? openReq : null}
           resetRequest={resetReq}
+          followId={open?.nodeId ?? null}
         />
       ) : null}
 
@@ -655,10 +721,19 @@ const Deck: React.FC = () => {
           activeTab={open.tab}
           onTab={(tab) => setOpen((o) => (o ? { ...o, tab } : o))}
           playerHandleRef={playerHandleRef}
-          revealed={open.wasVisited}
+          revealed={open.revealed}
           onStepChange={handleStepChange}
           contextDiagram={level.diagram}
           contextNodeId={open.nodeId}
+          contextFrameIds={railFrame}
+          contextDetails={level.details}
+          contextVisited={visited}
+          onOpenNode={handleOpen}
+          position={
+            stack.length === 1 && guidePath[pathIdx] === open.nodeId
+              ? { index: pathIdx + 1, total: guidePath.length }
+              : undefined
+          }
         />
       ) : null}
 

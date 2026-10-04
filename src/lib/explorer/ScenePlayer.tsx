@@ -13,7 +13,8 @@ import type { SceneModule } from '../timeline/types';
 export interface ScenePlayerHandle {
   /** play to the next step boundary; false when already at the last step */
   advance(): boolean;
-  back(): void;
+  /** settle on the previous step; false when already on the first one */
+  back(): boolean;
   restart(): void;
   playAll(): void;
   pause(): void;
@@ -168,10 +169,12 @@ export const ScenePlayer = forwardRef<ScenePlayerHandle, ScenePlayerProps>(
         back: () => {
           if (targetRef.current !== null) {
             settle(stepIdxRef.current, targetRef.current);
-            return;
+            return true;
           }
-          const prev = Math.max(0, stepIdxRef.current - 1);
+          if (stepIdxRef.current === 0) return false;
+          const prev = stepIdxRef.current - 1;
           settle(prev, meta.steps[prev]!.endFrame - 1);
+          return true;
         },
         restart: () => {
           playerRef.current?.seekTo(0);

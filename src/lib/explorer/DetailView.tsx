@@ -1,10 +1,10 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import type { Diagram } from '../diagram/schema';
 import { useTheme } from '../theme';
 import { FitScale } from '../kit/layout/FitScale';
 import { ExplorerCanvas } from './ExplorerCanvas';
 import { ScenePlayer, type ScenePlayerHandle } from './ScenePlayer';
-import type { Detail } from './types';
+import type { Detail, DetailsMap } from './types';
 
 export interface DetailViewProps {
   title: string;
@@ -17,11 +17,23 @@ export interface DetailViewProps {
   revealed?: boolean;
   /** forwarded to ScenePlayer so App can broadcast step position to the notes window */
   onStepChange?: (stepIdx: number, stepId: string) => void;
-  /** root/parent architecture kept visible while the explanation plays */
+  /** the diagram this module was opened from, kept visible in the rail while the explanation plays */
   contextDiagram?: Diagram;
-  /** module highlighted in the persistent architecture rail */
+  /** module highlighted in the rail */
   contextNodeId?: string;
+  /** what the rail frames: the open module's group (its chapter); omit for the whole diagram */
+  contextFrameIds?: string[];
+  /** the level's details and visited set — with `onOpenNode`, the rail's modules open on a click */
+  contextDetails?: DetailsMap;
+  contextVisited?: Set<string>;
+  onOpenNode?: (nodeId: string) => void;
+  /** where this module sits in the guided path (1-based), shown above the rail */
+  position?: { index: number; total: number };
 }
+
+const NO_DETAILS: DetailsMap = {};
+const NONE_VISITED = new Set<string>();
+const noop = () => undefined;
 
 const tabLabel = (d: Detail, i: number): string => {
   if (d.label) return d.label;
@@ -51,10 +63,18 @@ export const DetailView: React.FC<DetailViewProps> = ({
   onStepChange,
   contextDiagram,
   contextNodeId,
+  contextFrameIds,
+  contextDetails,
+  contextVisited,
+  onOpenNode,
+  position,
 }) => {
   const t = useTheme();
   const item = items[Math.min(activeTab, items.length - 1)]!;
   const [walking, setWalking] = useState(false);
+
+  // the walkthrough belongs to the module it was started in
+  useEffect(() => setWalking(false), [contextNodeId]);
 
   const stopWalkthrough = useCallback(() => {
     setWalking(false);
@@ -157,7 +177,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
           </button>
         ) : null}
         <div style={{ color: t.palette.colors.muted, fontSize: 15, fontFamily: t.fonts.mono }}>
-          Space 다음 · Esc 돌아가기 · o 개요
+          Space 다음 · ← 이전 · Esc 돌아가기 · o 개요
         </div>
       </div>
 
@@ -180,31 +200,28 @@ export const DetailView: React.FC<DetailViewProps> = ({
               background: t.palette.colors.bg,
             }}
           >
-            <div style={{ padding: '18px 18px 12px', fontFamily: t.fonts.text }}>
+            {position ? (
               <div
                 style={{
-                  color: t.palette.colors.accent,
-                  fontFamily: t.fonts.mono,
-                  fontSize: 13,
-                  letterSpacing: '0.12em',
-                  marginBottom: 6,
+                  padding: '16px 18px 0',
+                  fontFamily: t.fonts.num,
+                  fontSize: 17,
+                  color: t.palette.colors.muted,
                 }}
               >
-                ARCHITECTURE CONTEXT
+                {position.index} / {position.total}
               </div>
-              <div style={{ color: t.palette.colors.text, fontSize: 20, fontWeight: 600 }}>{title}</div>
-              <div style={{ color: t.palette.colors.muted, fontSize: 14, marginTop: 4 }}>
-                드래그·스크롤로 전체 흐름을 계속 확인할 수 있습니다.
-              </div>
-            </div>
+            ) : null}
             <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
               <ExplorerCanvas
                 diagram={contextDiagram}
-                details={{}}
-                visited={new Set()}
-                onOpen={() => undefined}
+                details={onOpenNode ? (contextDetails ?? NO_DETAILS) : NO_DETAILS}
+                visited={contextVisited ?? NONE_VISITED}
+                onOpen={onOpenNode ?? noop}
                 activeIds={contextNodeId ? [contextNodeId] : []}
-                interactive={false}
+                frameIds={contextFrameIds}
+                interactive={Boolean(onOpenNode)}
+                instantOpen
                 showMiniMap={false}
               />
             </div>
@@ -214,7 +231,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
         <div style={{ minWidth: 0, minHeight: 0, position: 'relative', padding: 18 }}>
           {item.kind === 'scene' ? (
             <ScenePlayer
-              key={`${title}-${activeTab}`}
+              key={`${contextNodeId ?? title}-${activeTab}`}
               ref={(h) => {
                 playerHandleRef.current = h;
               }}
